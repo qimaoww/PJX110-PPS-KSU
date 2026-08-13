@@ -47,22 +47,24 @@ echo "========================================"
 device_ok || { echo "[!] Not PJX110/corvette."; exit 10; }
 
 if trusted_slot_conflict; then
-  echo "[!] Trusted slot sources disagree; refusing DTBO write."
+  echo "[!] Cannot reliably locate the active DTBO partition: trusted slot sources disagree."
+  echo "[!] Image selection is hash-only, but the write target must still be unambiguous."
   exit 11
 fi
 
 slot="$(slot_suffix)"
 [ -n "$slot" ] || { echo "[!] Cannot determine active slot."; exit 12; }
 label="$(slot_label "$slot")"
-block="$(find_dtbo_block_for_slot "$slot")" || { echo "[!] Slot-$label DTBO block not found."; exit 13; }
+block="$(find_dtbo_block_for_slot "$slot")" || { echo "[!] Active DTBO block not found."; exit 13; }
 
 cur="$(block_hash "$block")" || { echo "[!] Failed to hash DTBO."; exit 14; }
 family="$(dtbo_family_for_hash "$cur")"
 CURRENT="$(detect_profile_for_hash "$cur")"
 
 echo "[*] Active slot: $label (source: $(slot_source))"
+echo "[*] A/B is used only to locate the active DTBO partition; image selection is hash-only."
 echo "[*] Current SHA256: $cur"
-echo "[*] DTBO image family: $(dtbo_family_label "$family")"
+echo "[*] DTBO firmware family: $(dtbo_family_label "$family")"
 echo "[*] Current profile: $CURRENT"
 echo "[*] Requested profile: $TARGET"
 

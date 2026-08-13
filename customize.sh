@@ -1,6 +1,6 @@
 #!/system/bin/sh
 ui_print "----------------------------------------"
-ui_print " Ace 3 Pro PPS Profiles v1.0.1"
+ui_print " Ace 3 Pro PPS Profiles v1.0.2"
 ui_print " PJX110 / corvette"
 ui_print " Tested: PJX110_16.0.2.400"
 ui_print " Author: qimaoaa"
@@ -32,7 +32,7 @@ else
 fi
 
 ui_print ""
-ui_print "[+] A/B each contain independent stock / 33W / 55W images."
+ui_print "[+] Images selected by DTBO SHA256: PJX110_16.0.2.400 / 16.0.1.301."
 ui_print "[+] KernelSU Action button is intentionally disabled."
 ui_print "[+] Installation does NOT modify DTBO."
 ui_print "[+] All PPS/restore operations are available only inside WebUI."
