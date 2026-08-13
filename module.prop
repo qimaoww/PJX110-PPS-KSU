@@ -1,0 +1,6 @@
+id=ace3pro_pps33
+name=PJX110-pps-ksu
+version=v1.0.0
+versionCode=10000
+author=qimaoaa
+description=支持一加 Ace 3 Pro 原厂 / 33W PPS / 55W PPS 三档切换，33W 与 55W 均已在 PJX110_16.0.2.400 实机测试可用。支持 A/B 双槽、WebUI 充电监控、温度保护、内核日志复制与原厂 DTBO 恢复；其他固件版本需重新校验 DTBO。
