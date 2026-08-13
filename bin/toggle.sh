@@ -57,10 +57,12 @@ label="$(slot_label "$slot")"
 block="$(find_dtbo_block_for_slot "$slot")" || { echo "[!] Slot-$label DTBO block not found."; exit 13; }
 
 cur="$(block_hash "$block")" || { echo "[!] Failed to hash DTBO."; exit 14; }
-CURRENT="$(detect_profile_for_hash "$slot" "$cur")"
+family="$(dtbo_family_for_hash "$cur")"
+CURRENT="$(detect_profile_for_hash "$cur")"
 
 echo "[*] Active slot: $label (source: $(slot_source))"
 echo "[*] Current SHA256: $cur"
+echo "[*] DTBO image family: $(dtbo_family_label "$family")"
 echo "[*] Current profile: $CURRENT"
 echo "[*] Requested profile: $TARGET"
 
@@ -75,8 +77,8 @@ if [ "$CURRENT" = "$TARGET" ]; then
   exit 0
 fi
 
-stock="$(stock_image_for_slot "$slot")"
-stock_sha="$(stock_sha_for_slot "$slot")"
+stock="$(stock_image_for_family "$family")"
+stock_sha="$(stock_sha_for_family "$family")"
 
 # Save an external stock backup whenever the exact stock image is currently active.
 if [ "$CURRENT" = "stock" ]; then
@@ -86,8 +88,8 @@ if [ "$CURRENT" = "stock" ]; then
   }
 fi
 
-target_img="$(profile_image_for_slot "$slot" "$TARGET")" || exit 17
-target_sha="$(profile_sha_for_slot "$slot" "$TARGET")" || exit 17
+target_img="$(profile_image_for_family "$family" "$TARGET")" || exit 17
+target_sha="$(profile_sha_for_family "$family" "$TARGET")" || exit 17
 
 case "$TARGET" in
   stock) echo "[*] Restoring exact slot-$label stock DTBO..." ;;

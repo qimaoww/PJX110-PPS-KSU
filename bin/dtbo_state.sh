@@ -18,7 +18,8 @@ label="$(slot_label "$slot")"
 block="$(find_dtbo_block_for_slot "$slot")" || { kv state error; kv message "DTBO block not found"; exit 1; }
 cur="$(block_hash "$block")" || { kv state error; kv message "Failed to read DTBO"; exit 1; }
 
-state="$(detect_profile_for_hash "$slot" "$cur")"
+family="$(dtbo_family_for_hash "$cur")"
+state="$(detect_profile_for_hash "$cur")"
 case "$state" in
   stock) text="原厂 DTBO" ;;
   pps33) text="PPS 33W DTBO" ;;
@@ -35,7 +36,8 @@ kv trusted_slot_conflict "$trusted_conflict"
 kv prop_slot_conflict "$prop_conflict"
 kv block "$block"
 kv sha256 "$cur"
-kv stock_sha "$(stock_sha_for_slot "$slot")"
-kv pps33_sha "$(pps33_sha_for_slot "$slot")"
-kv pps55_sha "$(pps55_sha_for_slot "$slot")"
+kv dtbo_family "$(dtbo_family_label "$family")"
+kv stock_sha "$(stock_sha_for_family "$family")"
+kv pps33_sha "$(pps33_sha_for_family "$family")"
+kv pps55_sha "$(pps55_sha_for_family "$family")"
 kv ab_supported "A/B"

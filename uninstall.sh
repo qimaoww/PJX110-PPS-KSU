@@ -7,14 +7,15 @@ device_ok || exit 0
 for slot in _a _b; do
   label="$(slot_label "$slot")"
   block="$(find_dtbo_block_for_slot "$slot")" || continue
-  stock_sha="$(stock_sha_for_slot "$slot")"
-  stock="$(stock_image_for_slot "$slot")"
   cur="$(block_hash "$block")" || continue
-  profile="$(detect_profile_for_hash "$slot" "$cur")"
+  family="$(dtbo_family_for_hash "$cur")"
+  profile="$(detect_profile_for_hash "$cur")"
 
   case "$profile" in
     pps33|pps55)
-      echo "[*] Uninstall: restoring slot-$label from $profile to stock DTBO..."
+      stock_sha="$(stock_sha_for_family "$family")" || continue
+      stock="$(stock_image_for_family "$family")" || continue
+      echo "[*] Uninstall: restoring slot-$label family-$(dtbo_family_label "$family") from $profile to stock DTBO..."
       write_verify "$stock" "$stock_sha" "$block" "" "" || true
       ;;
     stock)

@@ -1,6 +1,6 @@
 #!/system/bin/sh
 ui_print "----------------------------------------"
-ui_print " Ace 3 Pro PPS Profiles v1.0.0"
+ui_print " Ace 3 Pro PPS Profiles v1.0.1"
 ui_print " PJX110 / corvette"
 ui_print " Tested: PJX110_16.0.2.400"
 ui_print " Author: qimaoaa"

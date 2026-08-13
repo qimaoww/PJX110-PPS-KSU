@@ -128,69 +128,83 @@ slot_label() {
   case "$1" in _a) echo "A" ;; _b) echo "B" ;; *) echo "UNKNOWN" ;; esac
 }
 
-stock_sha_for_slot() {
-  case "$1" in _a) echo "$A_STOCK_SHA" ;; _b) echo "$B_STOCK_SHA" ;; *) return 1 ;; esac
+dtbo_family_label() {
+  case "$1" in a) echo "A" ;; b) echo "B" ;; *) echo "UNKNOWN" ;; esac
 }
 
-pps33_sha_for_slot() {
-  case "$1" in _a) echo "$A_PPS33_SHA" ;; _b) echo "$B_PPS33_SHA" ;; *) return 1 ;; esac
+stock_sha_for_family() {
+  case "$1" in a) echo "$A_STOCK_SHA" ;; b) echo "$B_STOCK_SHA" ;; *) return 1 ;; esac
 }
 
-pps55_sha_for_slot() {
-  case "$1" in _a) echo "$A_PPS55_SHA" ;; _b) echo "$B_PPS55_SHA" ;; *) return 1 ;; esac
+pps33_sha_for_family() {
+  case "$1" in a) echo "$A_PPS33_SHA" ;; b) echo "$B_PPS33_SHA" ;; *) return 1 ;; esac
 }
 
-stock_image_for_slot() {
+pps55_sha_for_family() {
+  case "$1" in a) echo "$A_PPS55_SHA" ;; b) echo "$B_PPS55_SHA" ;; *) return 1 ;; esac
+}
+
+stock_image_for_family() {
   case "$1" in
-    _a) echo "$MODDIR/images/dtbo_a_stock.img" ;;
-    _b) echo "$MODDIR/images/dtbo_b_stock.img" ;;
+    a) echo "$MODDIR/images/dtbo_a_stock.img" ;;
+    b) echo "$MODDIR/images/dtbo_b_stock.img" ;;
     *) return 1 ;;
   esac
 }
 
-pps33_image_for_slot() {
+pps33_image_for_family() {
   case "$1" in
-    _a) echo "$MODDIR/images/dtbo_a_pps33.img" ;;
-    _b) echo "$MODDIR/images/dtbo_b_pps33.img" ;;
+    a) echo "$MODDIR/images/dtbo_a_pps33.img" ;;
+    b) echo "$MODDIR/images/dtbo_b_pps33.img" ;;
     *) return 1 ;;
   esac
 }
 
-pps55_image_for_slot() {
+pps55_image_for_family() {
   case "$1" in
-    _a) echo "$MODDIR/images/dtbo_a_pps55.img" ;;
-    _b) echo "$MODDIR/images/dtbo_b_pps55.img" ;;
+    a) echo "$MODDIR/images/dtbo_a_pps55.img" ;;
+    b) echo "$MODDIR/images/dtbo_b_pps55.img" ;;
     *) return 1 ;;
   esac
 }
 
-profile_sha_for_slot() {
-  slot="$1"; profile="$2"
+profile_sha_for_family() {
+  family="$1"; profile="$2"
   case "$profile" in
-    stock) stock_sha_for_slot "$slot" ;;
-    pps33) pps33_sha_for_slot "$slot" ;;
-    pps55) pps55_sha_for_slot "$slot" ;;
+    stock) stock_sha_for_family "$family" ;;
+    pps33) pps33_sha_for_family "$family" ;;
+    pps55) pps55_sha_for_family "$family" ;;
     *) return 1 ;;
   esac
 }
 
-profile_image_for_slot() {
-  slot="$1"; profile="$2"
+profile_image_for_family() {
+  family="$1"; profile="$2"
   case "$profile" in
-    stock) stock_image_for_slot "$slot" ;;
-    pps33) pps33_image_for_slot "$slot" ;;
-    pps55) pps55_image_for_slot "$slot" ;;
+    stock) stock_image_for_family "$family" ;;
+    pps33) pps33_image_for_family "$family" ;;
+    pps55) pps55_image_for_family "$family" ;;
     *) return 1 ;;
+  esac
+}
+
+dtbo_family_for_hash() {
+  hash="$1"
+  case "$hash" in
+    "$A_STOCK_SHA"|"$A_PPS33_SHA"|"$A_PPS55_SHA") echo a ;;
+    "$B_STOCK_SHA"|"$B_PPS33_SHA"|"$B_PPS55_SHA") echo b ;;
+    *) echo unknown; return 1 ;;
   esac
 }
 
 detect_profile_for_hash() {
-  slot="$1"; hash="$2"
-  [ "$hash" = "$(stock_sha_for_slot "$slot")" ] && { echo stock; return 0; }
-  [ "$hash" = "$(pps33_sha_for_slot "$slot")" ] && { echo pps33; return 0; }
-  [ "$hash" = "$(pps55_sha_for_slot "$slot")" ] && { echo pps55; return 0; }
-  echo unknown
-  return 1
+  hash="$1"
+  case "$hash" in
+    "$A_STOCK_SHA"|"$B_STOCK_SHA") echo stock ;;
+    "$A_PPS33_SHA"|"$B_PPS33_SHA") echo pps33 ;;
+    "$A_PPS55_SHA"|"$B_PPS55_SHA") echo pps55 ;;
+    *) echo unknown; return 1 ;;
+  esac
 }
 
 find_dtbo_block_for_slot() {
@@ -280,7 +294,7 @@ write_verify() {
 
   echo "[!] Readback verification failed."
   if [ -n "$fallback" ] && [ -f "$fallback" ] && [ "$(hash_file "$fallback")" = "$fallback_sha" ]; then
-    echo "[!] Attempting immediate exact-slot stock restore..."
+    echo "[!] Attempting immediate exact-family stock restore..."
     dd if="$fallback" of="$block" bs=4194304 2>/dev/null
     sync
     rh="$(block_hash "$block")" || rh=""

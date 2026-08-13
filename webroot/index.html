@@ -76,7 +76,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#080a0e;border:1px sol
   <div class="hero">
     <div>
       <h1>Ace 3 Pro PPS</h1>
-      <p>v1.0.0 · PJX110 · 原厂 / 33W / 55W · 仅 PJX110_16.0.2.400 已实测</p>
+      <p>v1.0.1 · PJX110 · 原厂 / 33W / 55W · 仅 PJX110_16.0.2.400 已实测</p>
     </div>
     <button class="iconbtn" id="refreshBtn" aria-label="刷新">↻</button>
   </div>
@@ -90,6 +90,7 @@ pre{white-space:pre-wrap;word-break:break-word;background:#080a0e;border:1px sol
       <div class="pill" id="dtboPill"><span class="dot"></span><span id="dtboPillText">检查中</span></div>
     </div>
     <div class="kv" style="margin-top:10px"><span>当前活动槽位</span><code id="slot">—</code></div>
+    <div class="kv"><span>DTBO 内容族</span><code id="dtboFamily">—</code></div>
     <div class="kv"><span>槽位判断来源</span><code id="slotSource">—</code></div>
     <div class="kv"><span>槽位来源状态</span><code id="slotConflict">—</code></div>
     <div class="kv"><span>当前 SHA256</span><code id="sha">—</code></div>
@@ -461,6 +462,7 @@ async function refreshDtbo() {
     dtboState = d.state || 'error';
     $('dtboLabel').textContent = d.label || '读取失败';
     $('slot').textContent = dash(d.slot);
+    $('dtboFamily').textContent = dash(d.dtbo_family);
     $('slotSource').textContent = dash(d.slot_source);
     $('slotConflict').textContent = d.trusted_slot_conflict === '1'
       ? '危险：底层来源冲突'
