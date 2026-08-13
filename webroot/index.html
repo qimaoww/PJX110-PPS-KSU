@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ace 3 Pro PPS</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#090b10;
+  --panel:#11151d;
+  --panel2:#171c26;
+  --line:#252c38;
+  --text:#f4f7fb;
+  --muted:#9099a8;
+  --good:#62d39a;
+  --warn:#ffcc66;
+  --bad:#ff7373;
+  --accent:#7aa7ff;
+  --radius:20px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans SC","Microsoft YaHei",sans-serif}
+body{padding:max(18px,env(safe-area-inset-top)) 16px max(28px,env(safe-area-inset-bottom))}
+main{max-width:760px;margin:0 auto}
+h1,h2,p{margin:0}
+.hero{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:6px 2px 18px}
+.hero h1{font-size:26px;letter-spacing:-.4px}
+.hero p{margin-top:6px;color:var(--muted);font-size:13px}
+.iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:14px;width:44px;height:44px;font-size:20px}
+.card{background:linear-gradient(180deg,var(--panel),#0f131a);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:12px 0;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.statusrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:999px;background:var(--panel2);font-size:13px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.good .dot{background:var(--good);box-shadow:0 0 12px var(--good)}
+.pill.warn .dot{background:var(--warn)}
+.pill.bad .dot{background:var(--bad)}
+.small{font-size:12px;color:var(--muted)}
+.primary{font-size:42px;font-weight:780;letter-spacing:-1.5px;margin:10px 0 2px}
+.primary span{font-size:18px;font-weight:650;color:var(--muted);letter-spacing:0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:13px}
+.metric{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:13px}
+.metric .label{font-size:12px;color:var(--muted);margin-bottom:6px}
+.metric .value{font-size:20px;font-weight:720;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric .unit{font-size:12px;color:var(--muted);margin-left:3px}
+.section-title{font-size:15px;font-weight:750;margin:4px 1px 11px}
+.kv{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.kv:last-child{border-bottom:0}
+.kv span:first-child{color:var(--muted)}
+.kv code{max-width:62%;overflow-wrap:anywhere;text-align:right;color:var(--text);font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.profile-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.profile-actions button{min-width:0;padding:0 8px}.profile-actions button.active{outline:2px solid var(--good);outline-offset:2px}
+button.action{min-height:48px;border:0;border-radius:15px;font-size:15px;font-weight:740;padding:0 14px}
+button.action:disabled{opacity:.42}
+.enable{background:var(--accent);color:#07101f}
+.restore{background:var(--warn);color:#231800}
+.secondary{background:var(--panel2);border:1px solid var(--line)!important;color:var(--text)}
+.danger{background:#3a171a;color:#ffb2b2;border:1px solid #6a282d!important}
+.notice{font-size:12px;line-height:1.6;color:var(--muted);margin-top:12px}
+.details{max-height:290px;overflow:auto}
+.detail{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;line-height:1.55;padding:8px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+pre{white-space:pre-wrap;word-break:break-word;background:#080a0e;border:1px solid var(--line);padding:12px;border-radius:14px;max-height:360px;overflow:auto;font:11px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;color:#dce5f2}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:99}
+.overlay.show{display:flex}
+.dialog{width:min(520px,100%);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px}
+.dialog h2{font-size:19px}
+.dialog p{color:var(--muted);font-size:13px;line-height:1.6;margin:10px 0 16px}
+.dialog .actions{margin-top:12px}
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:-4px;margin-right:7px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(min-width:620px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.metric.big{grid-column:span 2}}
+</style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div>
+      <h1>Ace 3 Pro PPS</h1>
+      <p>v1.0.0 · PJX110 · 原厂 / 33W / 55W · 仅 PJX110_16.0.2.400 已实测</p>
+    </div>
+    <button class="iconbtn" id="refreshBtn" aria-label="刷新">↻</button>
+  </div>
+
+  <section class="card">
+    <div class="statusrow">
+      <div>
+        <div class="small">DTBO 状态</div>
+        <div id="dtboLabel" style="font-size:20px;font-weight:760;margin-top:4px">读取中…</div>
+      </div>
+      <div class="pill" id="dtboPill"><span class="dot"></span><span id="dtboPillText">检查中</span></div>
+    </div>
+    <div class="kv" style="margin-top:10px"><span>当前活动槽位</span><code id="slot">—</code></div>
+    <div class="kv"><span>槽位判断来源</span><code id="slotSource">—</code></div>
+    <div class="kv"><span>槽位来源状态</span><code id="slotConflict">—</code></div>
+    <div class="kv"><span>当前 SHA256</span><code id="sha">—</code></div>
+    <div class="kv"><span>Bootloader 状态</span><code id="bootState">仅读取参考值…</code></div>
+    <div class="kv"><span>WebUI / root shell</span><code id="bridgeStatus">检查中…</code></div>
+  </section>
+
+  <section class="card">
+    <div class="statusrow">
+      <div>
+        <div class="small">充电状态</div>
+        <div class="primary"><span id="capacity">—</span><span>%</span></div>
+      </div>
+      <div class="pill" id="chargePill"><span class="dot"></span><span id="chargeStatus">读取中</span></div>
+    </div>
+
+    <div class="grid">
+      <div class="metric big"><div class="label">电池包功率</div><div class="value"><span id="pbat">—</span><span class="unit">W</span></div></div>
+      <div class="metric"><div class="label">电池包电压</div><div class="value"><span id="vbat">—</span><span class="unit">V</span></div></div>
+      <div class="metric"><div class="label">电池电流</div><div class="value"><span id="ibat">—</span><span class="unit">A</span></div></div>
+      <div class="metric"><div class="label">电池温度</div><div class="value"><span id="temp">—</span><span class="unit">°C</span></div></div>
+      <div class="metric"><div class="label">Cell 1</div><div class="value"><span id="cell1">—</span><span class="unit">V</span></div></div>
+      <div class="metric"><div class="label">Cell 2</div><div class="value"><span id="cell2">—</span><span class="unit">V</span></div></div>
+      <div class="metric"><div class="label">当前协议</div><div class="value" id="protocol">—</div></div>
+      <div class="metric"><div class="label">USB 输入功率</div><div class="value"><span id="usbPower">—</span><span class="unit">W</span></div></div>
+      <div class="metric"><div class="label">USB 电压</div><div class="value"><span id="usbV">—</span><span class="unit">V</span></div></div>
+      <div class="metric"><div class="label">USB 电流</div><div class="value"><span id="usbI">—</span><span class="unit">A</span></div></div>
+    </div>
+    <p class="notice">Ace 3 Pro 为双电芯架构：电池包功率按包电压 × 电池电流绝对值计算。若系统未暴露独立 Cell1/Cell2 sysfs，则自动显示为估算值并使用 2 × 单电芯 voltage_now 计算包电压。USB 输入功率只在内核提供有效 USB 电流时显示。</p>
+  </section>
+
+  <section class="card">
+    <div class="section-title">协议与电池信息</div>
+    <div class="kv"><span>当前 USB 类型</span><code id="usbType">—</code></div>
+    <div class="kv"><span>Real type</span><code id="realType">—</code></div>
+    <div class="kv"><span>USB type 原始值</span><code id="usbTypeRaw">—</code></div>
+    <div class="kv"><span>协议判断依据</span><code id="protocolSource">—</code></div>
+    <div class="small" style="padding:8px 0 2px">当前协议使用 power_supply 的实时选中项；深度 PPS/CPA 日志只在点击“查看充电日志”时读取。</div>
+    <div class="kv"><span>Type-C 模式</span><code id="typec">—</code></div>
+    <div class="kv"><span>输入电流限制</span><code id="icl">—</code></div>
+    <div class="kv"><span>PPS 目标电压</span><code id="ppsTargetV">点“查看充电日志”刷新</code></div>
+    <div class="kv"><span>PPS 目标电流</span><code id="ppsTargetI">点“查看充电日志”刷新</code></div>
+    <div class="kv"><span>PPS 最近设定电压</span><code id="ppsLastSetV">—</code></div>
+    <div class="kv"><span>PPS vbus_min</span><code id="ppsVbusMin">—</code></div>
+    <div class="kv"><span>Cell 数据来源</span><code id="cellSource">自动读取</code></div>
+    <div class="kv"><span>电池健康</span><code id="health">—</code></div>
+    <div class="kv"><span>循环次数</span><code id="cycle">—</code></div>
+    <div class="kv"><span>满充容量</span><code id="fullMah">—</code></div>
+    <div class="kv"><span>设计容量</span><code id="designMah">—</code></div>
+    <div class="kv"><span>MMI 充电</span><code id="mmi">—</code></div>
+    <div class="kv"><span>Cool down</span><code id="cooldown">—</code></div>
+    <div class="kv"><span>最后刷新</span><code id="lastRefresh">—</code></div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">PPS / DTBO 控制</div>
+    <div class="profile-actions">
+      <button class="action secondary" id="stockBtn" disabled>原厂</button>
+      <button class="action enable" id="pps33Btn" disabled>33W PPS</button>
+      <button class="action danger" id="pps55Btn" disabled>55W PPS</button>
+    </div>
+    <div class="actions" style="margin-top:10px">
+      <button class="action secondary" id="logBtn">查看充电日志</button>
+      <button class="action secondary" id="scanBtnTop">刷新充电信息</button>
+    </div>
+    <div class="small" style="margin-bottom:10px">适配范围：一加 Ace 3 Pro（PJX110）。33W 与 55W 均已在 <b>PJX110_16.0.2.400</b> 实机测试可用；55W 需要支持 5A PPS 的充电器与线材，实际功率仍受温度、SOC、适配器能力和系统保护策略限制。</div>
+    <p class="notice" id="toggleHint">模块不提供 KernelSU 执行按钮，所有 DTBO 操作仅在本 WebUI 中进行。模块安装本身不改 DTBO。切换会真实写入当前槽位 DTBO，并在写入后重新读取 SHA256 校验；切换后必须重启。</p>
+  </section>
+
+  <section class="card">
+    <div class="statusrow">
+      <div class="section-title" style="margin:0">充电节点诊断</div>
+      <button class="action secondary" id="scanBtn" style="min-height:38px">手动扫描</button>
+    </div>
+    <div class="details" id="details" style="margin-top:10px"><div class="small">为保证流畅度，节点扫描不会自动执行。</div></div>
+  </section>
+
+  <section class="card" id="logCard" style="display:none">
+    <div class="statusrow">
+      <div class="section-title" style="margin:0">内核充电日志</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="action secondary" id="copyLogBtn" style="min-height:40px;padding:0 14px">复制日志</button>
+        <button class="iconbtn" id="closeLog" aria-label="关闭">×</button>
+      </div>
+    </div>
+    <pre id="logOutput">—</pre>
+  </section>
+</main>
+
+<div class="overlay" id="confirmOverlay">
+  <div class="dialog">
+    <h2 id="confirmTitle">确认操作</h2>
+    <p id="confirmText"></p>
+    <div class="actions">
+      <button class="action secondary" id="cancelBtn">取消</button>
+      <button class="action danger" id="confirmBtn">确认写入</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { exec, toast } from './ksu.js';
+
+const MODDIR = '/data/adb/modules/PJX110_PPS_KSU';
+let dtboState = 'loading';
+let toggleBusy = false;
+let telemetryBusy = false;
+let dtboBusy = false;
+let detailsBusy = false;
+
+const $ = (id) => document.getElementById(id);
+const dash = (v) => (v === undefined || v === null || String(v).trim()==='') ? '—' : String(v);
+const esc = (s='') => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function parseKV(text='') {
+  const out = {};
+  for (const line of text.split(/\r?\n/)) {
+    const i = line.indexOf('=');
+    if (i <= 0) continue;
+    out[line.slice(0,i)] = line.slice(i+1).trim();
+  }
+  return out;
+}
+
+async function bridgeSelfTest() {
+  try {
+    const r = await exec(`printf 'ok'; test -f '${MODDIR}/module.prop' && printf ':module'`);
+    const ok = r.errno === 0 && (r.stdout || '').includes('ok:module');
+    $('bridgeStatus').textContent = ok ? '正常' : `异常 errno=${r.errno}`;
+    return ok;
+  } catch (_) {
+    $('bridgeStatus').textContent = 'KernelSU exec 不可用';
+    return false;
+  }
+}
+
+function pill(el, mode) {
+  el.classList.remove('good','warn','bad');
+  if (mode) el.classList.add(mode);
+}
+
+
+function n(v) {
+  if (v === undefined || v === null || String(v).trim() === '') return null;
+  const x = Number(String(v).trim());
+  return Number.isFinite(x) ? x : null;
+}
+
+function abs(x) { return x === null ? null : Math.abs(x); }
+
+function rawVoltageToV(v) {
+  const x = n(v);
+  if (x === null) return null;
+  const a = Math.abs(x);
+  return a >= 100000 ? x / 1000000 : x / 1000;
+}
+
+function rawCurrentToA(v) {
+  const x = n(v);
+  if (x === null) return null;
+  const a = Math.abs(x);
+  return a >= 100000 ? x / 1000000 : x / 1000;
+}
+
+function rawTempToC(v) {
+  const x = n(v);
+  if (x === null) return null;
+  return Math.abs(x) >= 100 ? x / 10 : x;
+}
+
+function rawCapacityToMah(v) {
+  const x = n(v);
+  if (x === null) return null;
+  return Math.abs(x) >= 100000 ? x / 1000 : x;
+}
+
+function fmt(v, digits=2) {
+  return Number.isFinite(v) ? v.toFixed(digits) : '—';
+}
+
+function activeUsbType(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const m = s.match(/\[([^\]]+)\]/);
+  if (m) return m[1].trim();
+  // If the kernel already returns one value instead of an enum list.
+  if (!/\s/.test(s)) return s;
+  return '';
+}
+
+function protocolFromUsbType(active, real, online) {
+  if (!online) return ['未连接', 'power_supply offline'];
+  const a = String(active || real || '').trim().toUpperCase();
+  if (a === 'PD_PPS' || a === 'PPS') return ['PPS', 'power_supply usb_type 当前方括号项'];
+  if (a === 'PD' || a === 'PD_DRP' || a === 'USB_PD') return ['PD', 'power_supply usb_type 当前方括号项'];
+  if (a === 'UFCS') return ['UFCS', 'power_supply usb_type 当前方括号项'];
+  if (a.includes('SUPERVOOC') || a === 'SVOOC') return ['SUPERVOOC', 'power_supply 类型'];
+  if (a === 'VOOC') return ['VOOC', 'power_supply 类型'];
+  if (a.startsWith('QC') || a.startsWith('HVDCP')) return ['QC', 'power_supply usb_type 当前项'];
+  if (a === 'DCP') return ['DCP / BC1.2', 'power_supply usb_type 当前项'];
+  if (a === 'CDP') return ['CDP / BC1.2', 'power_supply usb_type 当前项'];
+  if (a === 'SDP') return ['SDP / USB', 'power_supply usb_type 当前项'];
+  return [a || '已连接 / 未识别', active ? 'power_supply usb_type 当前项' : (real ? 'power_supply real_type' : 'power_supply online')];
+}
+
+function mapChargeStatus(s, usbOnline, acOnline) {
+  const t = (s || '').trim().toLowerCase();
+  const online = usbOnline === '1' || acOnline === '1';
+  if (t.includes('not charging')) return ['暂停充电','warn'];
+  if (t.includes('discharging')) return [online ? '未充电' : '未连接电源',''];
+  if (t.includes('full')) return ['已充满','good'];
+  if (t === 'charging' || t.endsWith(' charging')) return ['充电中','good'];
+  if (!online) return ['未连接电源',''];
+  return [s || '未知',''];
+}
+
+async function refreshTelemetry() {
+  if (toggleBusy || telemetryBusy || document.hidden) return;
+  telemetryBusy = true;
+  try {
+    const r = await exec(`sh '${MODDIR}/bin/status.sh'`);
+    if (r.errno !== 0) throw new Error(r.stderr || `errno ${r.errno}`);
+    const d = parseKV(r.stdout);
+
+    const vbatSingle = rawVoltageToV(d.vbat_raw);
+    const cell1Direct = rawVoltageToV(d.cell1_raw);
+    const cell2Direct = rawVoltageToV(d.cell2_raw);
+    const ibat = rawCurrentToA(d.ibat_raw);
+    const temp = rawTempToC(d.temp_raw);
+
+    let cell1 = cell1Direct;
+    let cell2 = cell2Direct;
+    let cellSource = '独立 Cell sysfs';
+
+    // On this device battery/voltage_now represents a single-cell-equivalent
+    // voltage. If no dedicated per-cell nodes are exported, estimate both cells
+    // from voltage_now for lightweight live display. Manual log diagnostics can
+    // later replace them with exact voltage_cell1/voltage_cell2 values.
+    if (cell1 === null || cell2 === null) {
+      cell1 = vbatSingle;
+      cell2 = vbatSingle;
+      cellSource = '2 × voltage_now 估算';
+    }
+
+    const packV = (cell1 !== null && cell2 !== null) ? (cell1 + cell2)
+      : (vbatSingle !== null ? vbatSingle * 2 : null);
+    const pbat = (packV !== null && ibat !== null) ? Math.abs(packV * ibat) : null;
+
+    const usbV = rawVoltageToV(d.usb_v_raw);
+    const usbI = rawCurrentToA(d.usb_i_raw);
+    const charging = String(d.status || '').toLowerCase().includes('charging')
+      && !String(d.status || '').toLowerCase().includes('not charging');
+    const meaningfulBatteryCurrent = ibat !== null && Math.abs(ibat) > 0.05;
+
+    // A zero USB current while the battery is clearly charging usually means
+    // this firmware does not expose charger-side current on that node.
+    const usbCurrentAvailable = usbI !== null && !(charging && meaningfulBatteryCurrent && Math.abs(usbI) < 0.001);
+    const usbPower = (usbV !== null && usbCurrentAvailable) ? Math.abs(usbV * usbI) : null;
+
+    const online = d.usb_online === '1' || d.ac_online === '1';
+    const activeType = activeUsbType(d.usb_type_raw);
+    const [proto, protoSource] = protocolFromUsbType(activeType, d.usb_real_type, online);
+
+    $('capacity').textContent = dash(d.capacity);
+    $('pbat').textContent = fmt(pbat, 2);
+    $('vbat').textContent = fmt(packV, 3);
+    $('cell1').textContent = fmt(cell1, 3);
+    $('cell2').textContent = fmt(cell2, 3);
+    $('cellSource').textContent = cellSource;
+        const statusLower = String(d.status || '').trim().toLowerCase();
+    let ibatDisplay = ibat;
+    if (ibat !== null) {
+      if (statusLower === 'charging' || (statusLower.endsWith(' charging') && !statusLower.includes('not charging'))) {
+        ibatDisplay = Math.abs(ibat);
+      } else if (statusLower.includes('discharging')) {
+        ibatDisplay = -Math.abs(ibat);
+      }
+    }
+    $('ibat').textContent = fmt(ibatDisplay, 3);
+    $('temp').textContent = fmt(temp, 1);
+
+    $('protocol').textContent = proto;
+    $('protocolSource').textContent = protoSource;
+
+    $('usbPower').textContent = fmt(usbPower, 2);
+    $('usbV').textContent = fmt(usbV, 3);
+    $('usbI').textContent = usbCurrentAvailable ? fmt(usbI, 3) : '—';
+
+    $('usbType').textContent = dash(activeType);
+    $('usbTypeRaw').textContent = dash(d.usb_type_raw);
+    $('realType').textContent = dash(d.usb_real_type);
+    $('typec').textContent = dash(d.typec_mode);
+
+    const icl = rawCurrentToA(d.usb_icl_raw);
+    $('icl').textContent = icl === null ? '—' : `${fmt(icl, 3)} A`;
+
+    $('health').textContent = dash(d.health);
+    $('cycle').textContent = dash(d.cycle_count);
+
+    const full = rawCapacityToMah(d.charge_full_raw);
+    const design = rawCapacityToMah(d.charge_full_design_raw);
+    $('fullMah').textContent = full === null ? '—' : `${fmt(full, 0)} mAh`;
+    $('designMah').textContent = design === null ? '—' : `${fmt(design, 0)} mAh`;
+
+    $('mmi').textContent = dash(d.mmi_charging_enable);
+    $('cooldown').textContent = dash(d.cool_down);
+    $('lastRefresh').textContent = dash(d.timestamp);
+
+    const [label, mode] = mapChargeStatus(d.status, d.usb_online, d.ac_online);
+    $('chargeStatus').textContent = label;
+    pill($('chargePill'), mode);
+  } catch (e) {
+    $('lastRefresh').textContent = '读取失败';
+    console.error(e);
+  } finally {
+    telemetryBusy = false;
+  }
+}
+async function refreshProtocolDiagnostic() {
+  try {
+    const r = await exec(`sh '${MODDIR}/bin/protocol.sh'`);
+    if (r.errno !== 0) throw new Error(r.stderr || `errno ${r.errno}`);
+    return parseKV(r.stdout);
+  } catch (_) {
+    return {};
+  }
+}
+async function refreshBootState() {
+  try {
+    const r = await exec(`sh '${MODDIR}/bin/boot_state.sh'`);
+    if (r.errno !== 0) throw new Error(r.stderr || `errno ${r.errno}`);
+    const d = parseKV(r.stdout);
+    $('bootState').textContent = dash(d.boot_state);
+  } catch (e) {
+    $('bootState').textContent = '读取失败（不影响 SHA 校验）';
+  }
+}
+
+function updateProfileButtons() {
+  const buttons = {
+    stock: $('stockBtn'),
+    pps33: $('pps33Btn'),
+    pps55: $('pps55Btn')
+  };
+  for (const [profile, btn] of Object.entries(buttons)) {
+    btn.classList.remove('active');
+    btn.disabled = toggleBusy || !['stock','pps33','pps55'].includes(dtboState) || profile === dtboState;
+    if (profile === dtboState) btn.classList.add('active');
+  }
+
+  if (dtboState === 'stock') {
+    $('toggleHint').textContent = '当前为原厂 DTBO。可切换到 33W（已验证）或 55W（实验）配置；写入后必须重启。';
+  } else if (dtboState === 'pps33') {
+    $('toggleHint').textContent = '当前为 33W PPS。可恢复原厂，或切换到 55W 实验档；写入后必须重启。';
+  } else if (dtboState === 'pps55') {
+    $('toggleHint').textContent = '当前为 55W PPS。可降回 33W 或恢复原厂；写入后必须重启。';
+  } else {
+    $('toggleHint').textContent = '当前 DTBO SHA256 不属于本模块支持的原厂/33W/55W 镜像，为防止刷错已禁止写入。';
+  }
+}
+
+async function refreshDtbo() {
+  if (dtboBusy || toggleBusy) return;
+  dtboBusy = true;
+  try {
+    const r = await exec(`sh '${MODDIR}/bin/dtbo_state.sh'`);
+    if (r.errno !== 0) throw new Error(r.stderr || `errno ${r.errno}`);
+    const d = parseKV(r.stdout);
+    dtboState = d.state || 'error';
+    $('dtboLabel').textContent = d.label || '读取失败';
+    $('slot').textContent = dash(d.slot);
+    $('slotSource').textContent = dash(d.slot_source);
+    $('slotConflict').textContent = d.trusted_slot_conflict === '1'
+      ? '危险：底层来源冲突'
+      : (d.prop_slot_conflict === '1' ? 'Android 属性与底层来源不同（可能被隐藏模块伪装）' : '一致');
+    $('sha').textContent = dash(d.sha256);
+    $('dtboPillText').textContent =
+      dtboState === 'pps55' ? 'PPS55 已写入' :
+      dtboState === 'pps33' ? 'PPS33 已写入' :
+      dtboState === 'stock' ? '原厂' :
+      dtboState === 'unknown' ? '拒绝写入' : '错误';
+    pill($('dtboPill'),
+      dtboState === 'pps55' ? 'warn' :
+      dtboState === 'pps33' ? 'good' :
+      dtboState === 'unknown' ? 'warn' :
+      dtboState === 'error' ? 'bad' : '');
+    updateProfileButtons();
+  } catch (e) {
+    dtboState = 'error';
+    $('dtboLabel').textContent = '读取失败';
+    $('sha').textContent = String(e);
+    for (const id of ['stockBtn','pps33Btn','pps55Btn']) $(id).disabled = true;
+    pill($('dtboPill'),'bad');
+  } finally {
+    dtboBusy = false;
+  }
+}
+
+let pendingProfile = null;
+
+function profileName(p) {
+  return p === 'stock' ? '原厂' : p === 'pps33' ? '33W PPS' : p === 'pps55' ? '55W PPS' : p;
+}
+
+function askProfile(profile) {
+  if (!['stock','pps33','pps55'].includes(dtboState) || toggleBusy || profile === dtboState) return;
+  pendingProfile = profile;
+  $('confirmTitle').textContent = `切换到 ${profileName(profile)}？`;
+
+  if (profile === 'pps55') {
+    $('confirmText').textContent =
+      '55W 档会将 PPS 上限配置为 11V/5A，并保留原有温度降流、SOC 与退出保护策略。需要支持 5A PPS 的充电器与线材；模块会严格校验当前槽位和 DTBO SHA，并在写入后回读验证。';
+    $('confirmBtn').textContent = '确认切换 55W';
+  } else if (profile === 'pps33') {
+    $('confirmText').textContent =
+      '将切换到已在 PJX110_16.0.2.400 实测通过的 33W PPS 配置，并进行完整 SHA256 回读校验。';
+    $('confirmBtn').textContent = '确认切换 33W';
+  } else {
+    $('confirmText').textContent =
+      '将当前活动槽位恢复为该槽位对应的精确原厂 DTBO，并进行 SHA256 回读校验。';
+    $('confirmBtn').textContent = '确认恢复原厂';
+  }
+  $('confirmOverlay').classList.add('show');
+}
+
+async function doProfileSwitch() {
+  if (!pendingProfile) return;
+  const target = pendingProfile;
+  pendingProfile = null;
+  $('confirmOverlay').classList.remove('show');
+  toggleBusy = true;
+  updateProfileButtons();
+
+  try {
+    const r = await exec(`sh '${MODDIR}/bin/toggle.sh' '${target}'`);
+    const output = `${r.stdout || ''}${r.stderr ? '\n'+r.stderr : ''}`.trim() || '(无输出)';
+    $('logCard').style.display = 'block';
+    $('logOutput').textContent = output;
+    if (r.errno === 0) toast(`已切换到 ${profileName(target)}，请重启`);
+    else toast(`切换失败 (errno ${r.errno})，请看下方输出`);
+  } catch (e) {
+    $('logCard').style.display = 'block';
+    $('logOutput').textContent = String(e);
+    toast('执行失败，请看下方错误');
+  } finally {
+    toggleBusy = false;
+    await refreshDtbo();
+    await refreshTelemetry();
+  }
+}
+
+async function copyLog() {
+  const text = $('logOutput').textContent || '';
+  if (!text.trim() || text.trim() === '—') {
+    toast('当前没有可复制的日志');
+    return;
+  }
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      toast('充电日志已复制');
+      return;
+    }
+  } catch (_) {}
+
+  // Fallback for Android WebView versions where Clipboard API is unavailable.
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  ta.style.pointerEvents = 'none';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+
+  let ok = false;
+  try {
+    ok = document.execCommand('copy');
+  } catch (_) {}
+
+  ta.remove();
+  toast(ok ? '充电日志已复制' : '复制失败，请长按日志手动复制');
+}
+
+
+function parseLogSummary(text='') {
+  const out = {};
+  for (const line of text.split(/\r?\n/)) {
+    const i = line.indexOf('=');
+    if (i <= 0) continue;
+    const k = line.slice(0, i).trim();
+    const v = line.slice(i + 1).trim();
+    if (k.startsWith('pps_') || k === 'cell1_mv' || k === 'cell2_mv' ||
+        k === 'battery_pack_mv' || k === 'battery_current_ma') {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
+function applyLogSummary(d) {
+  const mvToV = (v) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? (x / 1000).toFixed(3) : '—';
+  };
+
+  $('ppsTargetV').textContent = d.pps_target_voltage_mv ? `${mvToV(d.pps_target_voltage_mv)} V` : '—';
+  $('ppsTargetI').textContent = d.pps_target_current_ma ? `${d.pps_target_current_ma} mA` : '—';
+  $('ppsLastSetV').textContent = d.pps_last_set_voltage_mv ? `${mvToV(d.pps_last_set_voltage_mv)} V` : '—';
+  $('ppsVbusMin').textContent = d.pps_vbus_min_mv ? `${mvToV(d.pps_vbus_min_mv)} V` : '—';
+
+  if (d.cell1_mv && d.cell2_mv) {
+    $('cell1').textContent = mvToV(d.cell1_mv);
+    $('cell2').textContent = mvToV(d.cell2_mv);
+    $('cellSource').textContent = '内核日志 voltage_cell1/voltage_cell2';
+
+    const packMv = Number(d.battery_pack_mv || 0);
+    const battMa = Number(d.battery_current_ma || 0);
+    if (Number.isFinite(packMv) && packMv > 0) {
+      $('vbat').textContent = (packMv / 1000).toFixed(3);
+      if (Number.isFinite(battMa) && battMa !== 0) {
+        $('pbat').textContent = Math.abs((packMv / 1000) * (battMa / 1000)).toFixed(2);
+      }
+    }
+  }
+}
+
+async function loadLog() {
+  if (toggleBusy) return;
+  $('logCard').style.display = 'block';
+  $('logOutput').textContent = '正在读取内核充电日志…';
+  try {
+    const r = await exec(`sh '${MODDIR}/bin/charging_log.sh'`);
+    const text = (r.stdout || r.stderr || '没有匹配到日志').trim();
+    $('logOutput').textContent = text;
+    applyLogSummary(parseLogSummary(text));
+    $('logCard').scrollIntoView({behavior:'smooth', block:'start'});
+  } catch (e) { $('logOutput').textContent = String(e); }
+}
+
+async function scanDetails() {
+  if (detailsBusy || toggleBusy) return;
+  detailsBusy = true;
+  const btn=$('scanBtn');
+  btn.disabled=true; btn.textContent='扫描中…';
+  $('details').innerHTML='<div class="small">正在扫描 sysfs，只在你手动点击时执行。</div>';
+  try {
+    const r=await exec(`sh '${MODDIR}/bin/details.sh'`);
+    if (r.errno !== 0) throw new Error(r.stderr || `errno ${r.errno}`);
+    const d=parseKV(r.stdout);
+    const rows=Object.entries(d).filter(([k])=>k.startsWith('detail_')).sort((a,b)=>Number(a[0].slice(7))-Number(b[0].slice(7)));
+    $('details').innerHTML=rows.length ? rows.map(([,v])=>`<div class="detail">${esc(v)}</div>`).join('') : '<div class="small">没有匹配到额外充电节点。</div>';
+  } catch(e) {
+    $('details').innerHTML=`<div class="detail">扫描失败: ${esc(String(e))}</div>`;
+  } finally {
+    detailsBusy=false; btn.disabled=false; btn.textContent='手动扫描';
+  }
+}
+
+$('stockBtn').addEventListener('click', () => askProfile('stock'));
+$('pps33Btn').addEventListener('click', () => askProfile('pps33'));
+$('pps55Btn').addEventListener('click', () => askProfile('pps55'));
+$('cancelBtn').addEventListener('click', () => $('confirmOverlay').classList.remove('show'));
+$('confirmBtn').addEventListener('click', doProfileSwitch);
+$('logBtn').addEventListener('click', loadLog);
+$('scanBtnTop').addEventListener('click', refreshTelemetry);
+$('copyLogBtn').addEventListener('click', copyLog);
+$('scanBtn').addEventListener('click', scanDetails);
+$('closeLog').addEventListener('click', () => $('logCard').style.display='none');
+$('refreshBtn').addEventListener('click', async () => {
+  $('refreshBtn').textContent='…';
+  await bridgeSelfTest();
+  await refreshTelemetry();
+  await refreshDtbo();
+  await refreshBootState();
+  $('refreshBtn').textContent='↻';
+});
+$('confirmOverlay').addEventListener('click', e => { if (e.target === $('confirmOverlay')) $('confirmOverlay').classList.remove('show'); });
+
+document.addEventListener('visibilitychange', async () => {
+  if (!document.hidden) {
+    await refreshTelemetry();
+  }
+});
+
+await bridgeSelfTest();
+await refreshTelemetry();
+await refreshDtbo();
+await refreshBootState();
+setInterval(refreshTelemetry, 5000);
+</script>
+</body>
+</html>
