@@ -4,8 +4,14 @@ F400_STOCK_SHA="1e9b72599353e5d0009fcfe081185ebabd715a2e8ed1e2a8f0b695bc12c3cf17
 F400_PPS33_SHA="6a51bf1c7aa527e11a1c92a975ccda634798ce7cc9a2cfbac3d960feb6b54471"
 F400_PPS55_SHA="0e09c040605aa44de44179969d57a4829180adeada10a65c45d844137ed29aaa"
 F301_STOCK_SHA="4e6e85b2e4029a862e64bf7d5e74704a7563c980b696ee904cd72aaf59b4674e"
-F301_PPS33_SHA="f93f19a824aa5f77e70f7473269e05c5d90b1a4a3c4b8631d63aa173ee3a0d98"
-F301_PPS55_SHA="af711da52dd6e67087465f658113bec8388abf13dd2cd2cabbb666309fa3f660"
+F301_PPS33_SHA="2a5b2a0f4d3211e46500c87d92fb2331e7817c3ff5caa78dc8ea85e0a1939da0"
+F301_PPS55_SHA="5d3fdd44417fafa5dbdbc6fa543ce0848b47bd8083809c83d5af84886714ddb4"
+F701_STOCK_SHA="e8dd37efa99c0f59dc839e8b4582db9d619b6624e99bbdb0aee3e3f4c1336918"
+F701_PPS33_SHA="51bb84cf7b95de182434a0769e6b9980c3c1df96bde72984686f3294c1c1ca29"
+F701_PPS55_SHA="fb6c69d87b9401920cab7b2678c6d9ec3858abb792a8bb1fba55ccff6769873d"
+F1001_STOCK_SHA="ad6897d8a52cc8fdcb4423f1716c6c4506ee53338c218b2eaf2811162e7cb011"
+F1001_PPS33_SHA="9b18f5ab66aea841563a82ef1e3cf1b17ef19a043c842d7b53b0c67705a78ca7"
+F1001_PPS55_SHA="ebd894b22b1efa0d86cd8682221f61938a1ce96a8eb13402913904af97aac910"
 
 STATE_DIR="/data/adb/PJX110_PPS_KSU"
 BACKUP_DIR="$STATE_DIR/backup"
@@ -129,25 +135,51 @@ slot_label() {
 }
 
 dtbo_family_label() {
-  case "$1" in 400) echo "PJX110_16.0.2.400" ;; 301) echo "PJX110_16.0.1.301" ;; *) echo "UNKNOWN" ;; esac
+  case "$1" in
+    400) echo "PJX110_16.0.2.400" ;;
+    301) echo "PJX110_16.0.1.301" ;;
+    701) echo "PJX110_16.0.5.701" ;;
+    1001) echo "PJX110_16.0.5.1001" ;;
+    *) echo "UNKNOWN" ;;
+  esac
 }
 
 stock_sha_for_family() {
-  case "$1" in 400) echo "$F400_STOCK_SHA" ;; 301) echo "$F301_STOCK_SHA" ;; *) return 1 ;; esac
+  case "$1" in
+    400) echo "$F400_STOCK_SHA" ;;
+    301) echo "$F301_STOCK_SHA" ;;
+    701) echo "$F701_STOCK_SHA" ;;
+    1001) echo "$F1001_STOCK_SHA" ;;
+    *) return 1 ;;
+  esac
 }
 
 pps33_sha_for_family() {
-  case "$1" in 400) echo "$F400_PPS33_SHA" ;; 301) echo "$F301_PPS33_SHA" ;; *) return 1 ;; esac
+  case "$1" in
+    400) echo "$F400_PPS33_SHA" ;;
+    301) echo "$F301_PPS33_SHA" ;;
+    701) echo "$F701_PPS33_SHA" ;;
+    1001) echo "$F1001_PPS33_SHA" ;;
+    *) return 1 ;;
+  esac
 }
 
 pps55_sha_for_family() {
-  case "$1" in 400) echo "$F400_PPS55_SHA" ;; 301) echo "$F301_PPS55_SHA" ;; *) return 1 ;; esac
+  case "$1" in
+    400) echo "$F400_PPS55_SHA" ;;
+    301) echo "$F301_PPS55_SHA" ;;
+    701) echo "$F701_PPS55_SHA" ;;
+    1001) echo "$F1001_PPS55_SHA" ;;
+    *) return 1 ;;
+  esac
 }
 
 stock_image_for_family() {
   case "$1" in
     400) echo "$MODDIR/images/dtbo_400_stock.img" ;;
     301) echo "$MODDIR/images/dtbo_301_stock.img" ;;
+    701) echo "$MODDIR/images/dtbo_701_stock.img" ;;
+    1001) echo "$MODDIR/images/dtbo_1001_stock.img" ;;
     *) return 1 ;;
   esac
 }
@@ -156,6 +188,8 @@ pps33_image_for_family() {
   case "$1" in
     400) echo "$MODDIR/images/dtbo_400_pps33.img" ;;
     301) echo "$MODDIR/images/dtbo_301_pps33.img" ;;
+    701) echo "$MODDIR/images/dtbo_701_pps33.img" ;;
+    1001) echo "$MODDIR/images/dtbo_1001_pps33.img" ;;
     *) return 1 ;;
   esac
 }
@@ -164,6 +198,8 @@ pps55_image_for_family() {
   case "$1" in
     400) echo "$MODDIR/images/dtbo_400_pps55.img" ;;
     301) echo "$MODDIR/images/dtbo_301_pps55.img" ;;
+    701) echo "$MODDIR/images/dtbo_701_pps55.img" ;;
+    1001) echo "$MODDIR/images/dtbo_1001_pps55.img" ;;
     *) return 1 ;;
   esac
 }
@@ -193,6 +229,8 @@ dtbo_family_for_hash() {
   case "$hash" in
     "$F400_STOCK_SHA"|"$F400_PPS33_SHA"|"$F400_PPS55_SHA") echo 400 ;;
     "$F301_STOCK_SHA"|"$F301_PPS33_SHA"|"$F301_PPS55_SHA") echo 301 ;;
+    "$F701_STOCK_SHA"|"$F701_PPS33_SHA"|"$F701_PPS55_SHA") echo 701 ;;
+    "$F1001_STOCK_SHA"|"$F1001_PPS33_SHA"|"$F1001_PPS55_SHA") echo 1001 ;;
     *) echo unknown; return 1 ;;
   esac
 }
@@ -200,9 +238,9 @@ dtbo_family_for_hash() {
 detect_profile_for_hash() {
   hash="$1"
   case "$hash" in
-    "$F400_STOCK_SHA"|"$F301_STOCK_SHA") echo stock ;;
-    "$F400_PPS33_SHA"|"$F301_PPS33_SHA") echo pps33 ;;
-    "$F400_PPS55_SHA"|"$F301_PPS55_SHA") echo pps55 ;;
+    "$F400_STOCK_SHA"|"$F301_STOCK_SHA"|"$F701_STOCK_SHA"|"$F1001_STOCK_SHA") echo stock ;;
+    "$F400_PPS33_SHA"|"$F301_PPS33_SHA"|"$F701_PPS33_SHA"|"$F1001_PPS33_SHA") echo pps33 ;;
+    "$F400_PPS55_SHA"|"$F301_PPS55_SHA"|"$F701_PPS55_SHA"|"$F1001_PPS55_SHA") echo pps55 ;;
     *) echo unknown; return 1 ;;
   esac
 }
