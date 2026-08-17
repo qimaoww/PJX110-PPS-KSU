@@ -1,6 +1,6 @@
 id=PJX110_PPS_KSU
 name=PJX110-PPS-KSU
-version=v1.1.0
-versionCode=11000
+version=v1.1.1
+versionCode=11001
 author=qimaoaa
-description=支持一加 Ace 3 Pro 原厂 / 33W PPS / 55W PPS 三档切换；按完整 DTBO SHA256 识别 PJX110_16.0.2.400、16.0.1.301、16.0.5.701 和 16.0.5.1001，不按物理 A/B 槽选镜像。仅 .400 已实机测试，其他版本需自行验证。
+description=支持一加 Ace 3 Pro 原厂 / 33W PPS / 55W PPS 三档切换；按完整 DTBO SHA256 识别 PJX110_16.0.2.400、16.0.1.301、16.0.5.701 和 16.0.5.1001，不按物理 A/B 槽选镜像。仅 400 已实机测试，其他版本需自行验证。
