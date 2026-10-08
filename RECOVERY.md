@@ -86,11 +86,99 @@ Recovery 中若 `/data` 可解密，优先使用 `/data/adb/.../rescue/restore_s
 
 ## 五、只能进 bootloader/fastboot
 
-普通 fastboot 写入通常无法执行本项目要求的完整分区回读 SHA256 校验，因此本项目不提供
-一键 fastboot 刷写脚本。优先临时启动可用的第三方 Recovery，再运行上面的救援脚本。
-本项目不会提供或调用任何会写入 boot、vendor_boot、init_boot、vbmeta、super、userdata
-等其他分区的工具。无法通过 Recovery 只恢复目标 DTBO 槽时，应停止操作并寻求专业支持，
-不能把“完整线刷”作为本项目自动流程的一部分。
+可以在电脑上**手动刷回故障槽的原厂 DTBO**。以下不是一键恢复脚本；仅操作
+`dtbo_a` 或 `dtbo_b`，不刷其他分区，不解锁/重锁 Bootloader，不清除数据。
+
+### 1. 确认镜像与故障槽
+
+- Bootloader 必须已经解锁。使用与故障槽固件**完全一致**的原厂完整镜像：优先用救援目录
+  `slot_a/<stock_sha>/stock.img` 或 `slot_b/<stock_sha>/stock.img`；也可用对应固件的 `*_stock.img`。
+- 不能使用 33W/55W 镜像、`current` 档位备份、其他版本原厂镜像或来源不明的 `dtbo.img`。
+- 原厂 SHA256 以备份 manifest 的 `stock_sha` 或 [固件清单](FIRMWARES.md) 的 `stock` 行为准。
+  镜像须已通过完整 DTBO/VBMeta/AVB 校验；没有可信校验记录时，不刷。
+- 故障槽以之前的写入记录/备份 manifest 为准。设备可能自动换槽，`current-slot` **不一定是故障槽**。
+  无法确定槽位或版本时停止，不要轮流刷两个槽。
+
+在 PowerShell 7 中检查连接与 Bootloader 信息：
+
+```powershell
+fastboot devices
+fastboot getvar unlocked
+fastboot getvar current-slot
+```
+
+如连接多台设备，后续每条 `fastboot` 命令都加 `-s <设备序列号>`。Bootloader 返回锁定、
+变量不支持且无法另行确认，或读取失败时，不进入刷写步骤。
+
+### 2. 校验电脑上的原厂镜像
+
+将确认过的原厂镜像保存为 `dtbo_stock.img`，填写其可信 SHA256：
+
+```powershell
+$image = (Resolve-Path -LiteralPath .\dtbo_stock.img).Path
+$expectedStockSha256 = '填写对应原厂镜像的64位SHA256'
+if ($expectedStockSha256 -notmatch '^[0-9a-fA-F]{64}$') { throw '请先填写可信的原厂 SHA256' }
+if ((Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash -ine $expectedStockSha256) { throw '原厂镜像哈希不匹配，禁止刷写' }
+$bytes = [IO.File]::ReadAllBytes($image)
+if ($bytes.Length -lt 64 -or [Text.Encoding]::ASCII.GetString($bytes, $bytes.Length - 64, 4) -ne 'AVBf') { throw 'AVB footer 缺失，禁止刷写' }
+(Get-Item -LiteralPath $image).Length
+```
+
+最后一行是镜像字节数，须与目标分区大小一致；本项目内置镜像为 `25165824` 字节
+（`0x1800000`，24 MiB）。上述 footer 检查不能替代完整结构校验，只适用于前面确认过、
+哈希完全一致的原厂白名单镜像或此前已完整验证的原厂备份。
+
+### 3. 只刷已确认的故障槽
+
+**故障槽为 A：** 先读取大小：
+
+```powershell
+fastboot getvar partition-size:dtbo_a
+```
+
+读取成功且大小与上一步一致后，单独执行：
+
+```powershell
+fastboot flash dtbo_a "$image"
+```
+
+**故障槽为 B：** 仅在记录明确指向 B 时使用，不要再执行 A 槽命令。
+
+```powershell
+fastboot getvar partition-size:dtbo_b
+```
+
+同样先确认读取成功、大小一致，再单独执行：
+
+```powershell
+fastboot flash dtbo_b "$image"
+```
+
+只执行其中一组。出现 `FAILED`、分区不存在或大小不一致时停止，不使用强制参数，不切换槽位，
+也不刷 `boot`、`vendor_boot`、`init_boot`、`vbmeta`、`super`、`userdata`。
+
+### 4. 区分“写入成功”和“恢复已验证”
+
+fastboot 的 `OKAY` 只表示命令成功，**不等于完整分区回读验证通过**。若设备支持读取 DTBO，
+可回读对应槽；下面以 A 为例，B 槽必须改为 `dtbo_b`：
+
+```powershell
+fastboot fetch dtbo_a .\dtbo_a_readback.img
+if ($LASTEXITCODE -ne 0) { throw '设备不支持 DTBO 回读；不能据此认定恢复已验证' }
+if ((Get-FileHash -LiteralPath .\dtbo_a_readback.img -Algorithm SHA256).Hash -ine $expectedStockSha256) { throw 'DTBO 回读哈希不一致，停止操作' }
+```
+
+`fetch` 支持取决于设备，很多实现不允许读取 DTBO；不要改为读取其他分区或跳过校验。
+无法回读时，应进入能够读取 DTBO 的 Recovery，或在 Android 恢复启动且 Root 可用后，
+读取同一槽的完整 SHA256 再与原厂值核对。A 槽示例：
+
+```powershell
+fastboot reboot
+adb shell "su -c 'sha256sum /dev/block/by-name/dtbo_a'"
+```
+
+只有完整 SHA256 与原厂值一致才算恢复验证完成；不能启动或无法完成回读时，不要继续刷
+其他分区。模块的自动写入/救援脚本仍保留原有 AVB、槽位、SHA256 和完整回读门禁。
 
 ## 六、bootloader、fastboot、Recovery 都无法进入
 

@@ -68,16 +68,16 @@ if [ "$selected_family" != "unknown" ]; then
   mv "$STAGE" "$MODDIR/images" || exit 14
   STAGE_CREATED=0
   printf 'family=%s\nfirmware=%s\n' "$selected_family" "$(dtbo_family_label "$selected_family")" > "$MODDIR/installed_images.conf" || exit 14
-  echo "[+] Installed only $(dtbo_family_label "$selected_family"): stock / 33W / 55W (72 MiB)."
+  echo "[+] 已提取 $(dtbo_family_label "$selected_family") 的三档镜像（72 MiB）。"
 else
   [ ! -L "$MODDIR/images" ] || exit 14
   rm -rf "$MODDIR/images" || exit 14
   rm -f "$MODDIR/installed_images.conf"
-  echo "[+] Unknown DTBO or unavailable trusted slot: no static images installed; Patch Mode remains gated."
+  echo "[!] DTBO 未匹配或槽位不可确认，未安装内置镜像。"
 fi
 
 # Always retain the external stock rescue snapshots. Only installation payload
 # archives inside this module are removed after successful extraction.
 rm -rf "$MODDIR/image_sets" || exit 15
 sync || exit 15
-echo "[+] Compressed install image sets removed. No DTBO partition was modified."
+echo "[+] 压缩集已清理，本次安装未改动 DTBO。"
