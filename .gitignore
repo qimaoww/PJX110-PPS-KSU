@@ -1,0 +1,24 @@
+# Local instructions and private investigation/device data.
+/AGENTS.md
+/investigation/
+/dist/
+/patch-mode/
+
+# Local development caches and host-only binaries.
+node_modules/
+__pycache__/
+*.pyc
+*.exe
+*.log
+.DS_Store
+Thumbs.db
+
+# Credentials and signing material must never be published.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+adbkey
+adbkey.pub

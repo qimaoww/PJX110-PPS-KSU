@@ -1,6 +1,7 @@
 #!/system/bin/sh
 BINDIR="${0%/*}"
 MODDIR="${BINDIR%/bin}"
+PPS_STATE_READ_ONLY=1
 . "$MODDIR/common.sh"
 
 clean() { printf '%s' "$1" | tr '\r\n=' '   ' | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//'; }
@@ -61,6 +62,7 @@ esac
 [ "$conflict" = "1" ] && summary="$summary；与 Android 属性冲突/可能存在隐藏伪装"
 
 kv boot_state "$summary"
+kv system_firmware "$(system_firmware_version)"
 kv boot_state_conflict "$conflict"
 kv bootconfig_flash_locked "$bc_flash"
 kv bootconfig_vbmeta_state "$bc_vbmeta"

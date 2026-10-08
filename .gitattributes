@@ -1,3 +1,15 @@
 *.sh text eol=lf
+.gitignore text eol=lf
+*.txt text eol=lf
 module.prop text eol=lf
 webroot/* text eol=lf
+*.go text eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.ps1 text eol=lf
+*.mjs text eol=lf
+*.img binary
+*.dtbo binary
+bin/dtbo-profile-patcher binary

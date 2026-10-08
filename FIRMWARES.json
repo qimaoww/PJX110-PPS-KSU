@@ -1,0 +1,192 @@
+[
+  {
+    "family": "15_401",
+    "firmware": "PJX110_15.0.0.401",
+    "source_zip": "ColorOS PJX110_15.0.0.401(CN01) C.20/13180a1cbb7b4f55a02e210488caec69.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.1b8c631-9d72-9d73:user/release-keys",
+    "stock_sha": "a2ade575e3f540e23ee34f94ddd978b9f529b1317025753ffead7f7ebee03970",
+    "pps33_sha": "f84c97fce342d4f5e0091b1e79a3ce307dac61ce1f9075f2e0a1bf0358493422",
+    "pps55_sha": "7d7e8c49ee2c89ceb22433b1b77d02655a788b7aae5f8e5ca11e749c788b200f",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_500",
+    "firmware": "PJX110_15.0.0.500",
+    "source_zip": "ColorOS PJX110_15.0.0.500(CN01) C.21/76b976c19a77438db30c1fccdcbb6e10.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.1bf3d2d_1-49b0:user/release-keys",
+    "stock_sha": "cf0f22f8582e8ccffb8c06a496b5ce9eb4c5b6fb1c85b26df8fdb4be882c06b0",
+    "pps33_sha": "eb95b9b8577c94d081e3c040ab819787d870499c71e064a6e936dc8f31bcfae8",
+    "pps55_sha": "4aef0790262777629ee0593aaafcb7d1036b6dcd6d70543449170dada2747131",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_600",
+    "firmware": "PJX110_15.0.0.600",
+    "source_zip": "ColorOS PJX110_15.0.0.600(CN01) C.22/f8a04de31b664b9e8398c91d57af3728.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.1c92a95_9c8a_52f3:user/release-keys",
+    "stock_sha": "5b952ac1fda1f849b5a0b4fa9ef89989136990ea625f6d4a16283642ca597a4a",
+    "pps33_sha": "a0654988a777298b11fb8f1591dbbeefa771b0dbbf13b4472b88df9d1af624ae",
+    "pps55_sha": "bfd61d7c58ce9498de2df49785f0ced1db773f4b48f7c30807a50a29610402d8",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_701",
+    "firmware": "PJX110_15.0.0.701",
+    "source_zip": "ColorOS PJX110_15.0.0.701(CN01) C.23/63d9d910434d404ba6b58302d3ab2e54.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.1cf6b98-1-2:user/release-keys",
+    "stock_sha": "6cdd665302a8ef3ae9b8e4817f13a57a58eff2fee82041fe0292ab564255aa18",
+    "pps33_sha": "cd2b669189640b816d29771fb10070b8c779008815caf032f9108b138b839aca",
+    "pps55_sha": "a849b26a2aaaa8e41790c43143d54abace67da3ee04cb94b3c361d7f4d5053ad",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_703",
+    "firmware": "PJX110_15.0.0.703",
+    "source_zip": "ColorOS PJX110_15.0.0.703(CN01) C.25/98ac33649c514b8cb5bfc5cf50bb4509.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.1d1505b_14ecb_14eca:user/release-keys",
+    "stock_sha": "842736c9a924983283b05e744bbc22e1e6f949be0a4b4e0477a2a767e9d996b2",
+    "pps33_sha": "2100802aa39073cf779e0c0b43bcc0bbcce06593f6bfe167d57aaef05ef9fa69",
+    "pps55_sha": "d2d098353f275d028709d21aba7950d15e5a4d2db4879a3bd00271f1c316b731",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_801",
+    "firmware": "PJX110_15.0.0.801",
+    "source_zip": "ColorOS PJX110_15.0.0.801(CN01) C.28/cd259763278d4f559611cd349d813144.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.1d6105c-1-2:user/release-keys",
+    "stock_sha": "4cab2e6c49343f42daffd15944298b99043bca9f576f6d496e31ff8f7d03f34c",
+    "pps33_sha": "6ba39bfd044fdb62b7aba67e3999a0375cf2786223fed07cc6f263a8b7e85f70",
+    "pps55_sha": "f5bdbb21a6bd32e1c6694ac2638575f28d58d7f0753b597e0037283aa47bac41",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_820",
+    "firmware": "PJX110_15.0.0.820",
+    "source_zip": "ColorOS PJX110_15.0.0.820(CN01) C.30/661896f2e4ed45f48236906fa425fb6b.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.1db7b7d-3856_1:user/release-keys",
+    "stock_sha": "1d3103d6bd184a838665dad505c6601dc03e32ecbc50249b4d9c5ed85b296328",
+    "pps33_sha": "3e43dbb373d3a355f536ac57612e9324f73dd3dd782d31434f5949513346f907",
+    "pps55_sha": "49c76776abb342ce5742632388286cc6be6908f5a823612af322d019f3fc07c8",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_830",
+    "firmware": "PJX110_15.0.0.830",
+    "source_zip": "ColorOS PJX110_15.0.0.830(CN01) C.33/a304bd012ecc4cc59cfee9fd0a72c023.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.eaeccc_f7f336_f717d8:user/release-keys",
+    "stock_sha": "d11bb708c1130100ad8b475e7ccb7085c0bd3806250435323c105b4ded2ea3c1",
+    "pps33_sha": "a08fc949cc08f03f942ff8fe44ea256821096ae08226272ebcd580ebd583f8fd",
+    "pps55_sha": "79512b9919cbb31a54e46bc8a9a7d25feab16ea86cf99d0344467f4ee9713550",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_831",
+    "firmware": "PJX110_15.0.0.831",
+    "source_zip": "ColorOS PJX110_15.0.0.831(CN01) C.34/451954f641dc4933851542208b0fdf47.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.c92d20_11d4b58_118d784:user/release-keys",
+    "stock_sha": "3539038955b8d25b751d2e96e7816b6228e4229fc1534a7a473961043963c73d",
+    "pps33_sha": "6599654139ef42414f0336706e87f4543854d0a913f839eaebe268a08fbcffe5",
+    "pps55_sha": "b9087804a7d592b84b11a79588cf823261ba9590cb5ab13bfc93519b2d1cc622",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_840",
+    "firmware": "PJX110_15.0.0.840",
+    "source_zip": "ColorOS PJX110_15.0.0.840(CN01) C.35/75a28092ccc947b291856892b258a98d.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.390cef0-1a6b4e3-1a73ba9:user/release-keys",
+    "stock_sha": "499a29aa72f7eb148f3134a9bd86629ccd6ebcbda9d5d70b8003350ba44a7db3",
+    "pps33_sha": "12223af20cf77c37bdb892908a2d49a11c2904729098730793f533a00efeb85c",
+    "pps55_sha": "094680a4feb1387498f93c6b3cd6b5f77951ad8a8f3c0a4e1818c3bce6a475a5",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_850",
+    "firmware": "PJX110_15.0.0.850",
+    "source_zip": "ColorOS PJX110_15.0.0.850(CN01) C.36/58f0d245a6c849098cc554eea76ce3fe.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.1a7fda6_4b980d_49ccaa:user/release-keys",
+    "stock_sha": "8d2f7b054c068e8f60ae040b79159cdcb3ad2ffed05b231a75aa6b577f8dc0cb",
+    "pps33_sha": "91c9916261c21f9627fa31e4f583450b4f96dd02ef39dabebb891716c3f240c8",
+    "pps55_sha": "610f5e3ceebb35d03af3fe506da7ab40c2a9e212bffe5145e57d8207e26b34da",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_860",
+    "firmware": "PJX110_15.0.0.860",
+    "source_zip": "ColorOS PJX110_15.0.0.860(CN01) C.37/958085bddb0343e4b2f8a6fb28fc07ca.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.325ccad-12c7aa9-12c7aa8:user/release-keys",
+    "stock_sha": "b33648297c67b39267cc48663e4f4886d39871de5cb6ddb7511110aeda5a85f6",
+    "pps33_sha": "11f0f6ad44eeb3cf05110d9b1bd386c42bfb59e39883b6c6fd78aa6e381392f9",
+    "pps55_sha": "62ee62fb5a59216cfe24922382020efcfa5e6d12cd67d7fb74eb390a5584a28a",
+    "hardware_tested": false
+  },
+  {
+    "family": "15_861",
+    "firmware": "PJX110_15.0.0.861",
+    "source_zip": "ColorOS PJX110_15.0.0.861(CN01) C.39/1648a6b3e4054affb8dcbbb57fbee424.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:15/UKQ1.231108.001/U.4e74c1f-2e2a84e-2e2a84f:user/release-keys",
+    "stock_sha": "27061c29151b18de5e39370157f70c20873dc932e675ea097d7743678f1a8656",
+    "pps33_sha": "04c239473e5582b46e4ab5ce094cd381104a46a8065706b3f7d97eed51a5fa95",
+    "pps55_sha": "665daca262ad28d7741d1ba3c208a0f671056dfe5e6634bfaf4d9066c74321b1",
+    "hardware_tested": false
+  },
+  {
+    "family": "301",
+    "firmware": "PJX110_16.0.1.301",
+    "source_zip": "ColorOS PJX110_16.0.1.301(CN01) F.12/ce846e25f3db4497a488fa3257eb5525.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:16/UKQ1.231108.001/U.f9aed0_1164c89_1164c8b:user/release-keys",
+    "stock_sha": "4e6e85b2e4029a862e64bf7d5e74704a7563c980b696ee904cd72aaf59b4674e",
+    "pps33_sha": "053b3f3105cb30f9a2f09c3d8e510467561778ab847b1aae035c84c24ba9e8a2",
+    "pps55_sha": "8695bf93da80e1c4e7eb4734998cb3b6826cd8f9193f7cc749b14e09e291db97",
+    "hardware_tested": false
+  },
+  {
+    "family": "400",
+    "firmware": "PJX110_16.0.2.400",
+    "source_zip": "ColorOS PJX110_16.0.2.400(CN01) F.13/2525baa582564f18a76b1165478e5992.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:16/UKQ1.231108.001/U.2919651-77fc9d-7bc0a2:user/release-keys",
+    "stock_sha": "1e9b72599353e5d0009fcfe081185ebabd715a2e8ed1e2a8f0b695bc12c3cf17",
+    "pps33_sha": "6a51bf1c7aa527e11a1c92a975ccda634798ce7cc9a2cfbac3d960feb6b54471",
+    "pps55_sha": "0e09c040605aa44de44179969d57a4829180adeada10a65c45d844137ed29aaa",
+    "hardware_tested": true
+  },
+  {
+    "family": "16_500",
+    "firmware": "PJX110_16.0.3.500",
+    "source_zip": "ColorOS PJX110_16.0.3.500(CN01) F.14/1030adf9dd4948c081f5257b6fdf61d4.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:16/UKQ1.231108.001/U.26b348e-47d676-482720:user/release-keys",
+    "stock_sha": "52910ac5865380a2c631c6c69bd1fec135c332628e83a000bb954da5f36fe5d1",
+    "pps33_sha": "5305b08e242276d7286050739248f71d3efb7dc14680b270fe5ce1a25b311626",
+    "pps55_sha": "ca21577e62b0389decd53f2842318f9b0717a5cbe935897032c8b47df48be056",
+    "hardware_tested": false
+  },
+  {
+    "family": "16_501",
+    "firmware": "PJX110_16.0.3.501",
+    "source_zip": "ColorOS PJX110_16.0.3.501(CN01) F.15/f4acf472c475485babd0d7243a8b4a8d.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:16/UKQ1.231108.001/U.47fa381-257d1ef-25c9613:user/release-keys",
+    "stock_sha": "953b5e6311d3324fe7761bd5ed30288291ad13ca7f26f90208ef5398d0ee2542",
+    "pps33_sha": "4c006379839b227388529880097d949a2045e0abd4b1b1fb9d894bf0fb03478f",
+    "pps55_sha": "568ebbc41fc4c263a0f65101b233d91ead95edf536f14e0344092b864c081066",
+    "hardware_tested": false
+  },
+  {
+    "family": "1001",
+    "firmware": "PJX110_16.0.5.1001",
+    "source_zip": "ColorOS PJX110_16.0.5.1001(CN01) F.17/dcca57236a18485e97239152a6a6e434.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:16/UKQ1.231108.001/U.1ee43a4_5ee930_5044b0:user/release-keys",
+    "stock_sha": "ad6897d8a52cc8fdcb4423f1716c6c4506ee53338c218b2eaf2811162e7cb011",
+    "pps33_sha": "abcf2d37de193e0146c401332537ce34bd8c1444a5f8a4ea8ff880c8177195cc",
+    "pps55_sha": "817f4f34b2c320cbd9bd5833e3ba6393759c92627945fcc822aa3815e442c990",
+    "hardware_tested": false
+  },
+  {
+    "family": "701",
+    "firmware": "PJX110_16.0.5.701",
+    "source_zip": "ColorOS PJX110_16.0.5.701(CN01) F.16/faba2a6afc834843855599af7be64cf5.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:16/UKQ1.231108.001/U.26f642a-3a0080-3a0082:user/release-keys",
+    "stock_sha": "e8dd37efa99c0f59dc839e8b4582db9d619b6624e99bbdb0aee3e3f4c1336918",
+    "pps33_sha": "ee3ef9ca6edb70438a7fa77e1592501f99a170b0befcc3f383bac8d2b9161f5f",
+    "pps55_sha": "e0185cf9ae023d9dfbe685d1f859ed07c6948f7ac16bdeaf15a5e74f6d1bc949",
+    "hardware_tested": false
+  }
+]
