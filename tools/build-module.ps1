@@ -10,7 +10,7 @@ if ($version -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid module vers
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
 $output = Join-Path $dist "PJX110-PPS-KSU-$version.zip"
 $temporary = Join-Path $dist ('.build-' + [guid]::NewGuid().ToString('N') + '.zip')
-$files = @('module.prop','customize.sh','common.sh','uninstall.sh','skip_mount','README.md','RECOVERY.md','FIRMWARES.md','FIRMWARES.json','LICENSE','THIRD_PARTY_NOTICES.md')
+$files = @('module.prop','customize.sh','common.sh','service.sh','uninstall.sh','skip_mount','README.md','RECOVERY.md','FIRMWARES.md','FIRMWARES.json','LICENSE','THIRD_PARTY_NOTICES.md')
 foreach ($directory in @('bin','templates','webroot','rescue','LICENSES')) {
     $files += Get-ChildItem -LiteralPath (Join-Path $repo $directory) -File -Recurse |
         ForEach-Object { [IO.Path]::GetRelativePath($repo, $_.FullName).Replace('\','/') }

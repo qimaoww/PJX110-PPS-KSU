@@ -9,6 +9,9 @@ F301_PPS55_SHA="8695bf93da80e1c4e7eb4734998cb3b6826cd8f9193f7cc749b14e09e291db97
 F701_STOCK_SHA="e8dd37efa99c0f59dc839e8b4582db9d619b6624e99bbdb0aee3e3f4c1336918"
 F701_PPS33_SHA="ee3ef9ca6edb70438a7fa77e1592501f99a170b0befcc3f383bac8d2b9161f5f"
 F701_PPS55_SHA="e0185cf9ae023d9dfbe685d1f859ed07c6948f7ac16bdeaf15a5e74f6d1bc949"
+F1301_STOCK_SHA="1ed2fc69635547623d7c2f2ae78388349c3010cd1ab7c949a5fe97a57f96633b"
+F1301_PPS33_SHA="6e89a396b296eff3775b4d854886e541554d4e502a4ad0c67d9925dbbaeebc96"
+F1301_PPS55_SHA="e55e46dcff5506f2448e3a5591af74bbcc1c794fd20db4afbeb8ad7f7481b857"
 F1001_STOCK_SHA="ad6897d8a52cc8fdcb4423f1716c6c4506ee53338c218b2eaf2811162e7cb011"
 F1001_PPS33_SHA="abcf2d37de193e0146c401332537ce34bd8c1444a5f8a4ea8ff880c8177195cc"
 F1001_PPS55_SHA="817f4f34b2c320cbd9bd5833e3ba6393759c92627945fcc822aa3815e442c990"
@@ -514,6 +517,7 @@ dtbo_family_label() (
     16_500) echo "PJX110_16.0.3.500" ;;
     16_501) echo "PJX110_16.0.3.501" ;;
     1001) echo "PJX110_16.0.5.1001" ;;
+    1301) echo "PJX110_16.0.5.1301" ;;
     701) echo "PJX110_16.0.5.701" ;;
     *) echo "UNKNOWN" ;;
   esac
@@ -539,6 +543,7 @@ stock_sha_for_family() (
     16_500) echo "$F16_500_STOCK_SHA" ;;
     16_501) echo "$F16_501_STOCK_SHA" ;;
     1001) echo "$F1001_STOCK_SHA" ;;
+    1301) echo "$F1301_STOCK_SHA" ;;
     701) echo "$F701_STOCK_SHA" ;;
     *) return 1 ;;
   esac
@@ -564,6 +569,7 @@ pps33_sha_for_family() (
     16_500) echo "$F16_500_PPS33_SHA" ;;
     16_501) echo "$F16_501_PPS33_SHA" ;;
     1001) echo "$F1001_PPS33_SHA" ;;
+    1301) echo "$F1301_PPS33_SHA" ;;
     701) echo "$F701_PPS33_SHA" ;;
     *) return 1 ;;
   esac
@@ -589,6 +595,7 @@ pps55_sha_for_family() (
     16_500) echo "$F16_500_PPS55_SHA" ;;
     16_501) echo "$F16_501_PPS55_SHA" ;;
     1001) echo "$F1001_PPS55_SHA" ;;
+    1301) echo "$F1301_PPS55_SHA" ;;
     701) echo "$F701_PPS55_SHA" ;;
     *) return 1 ;;
   esac
@@ -614,6 +621,7 @@ stock_image_for_family() (
     16_500) echo "$MODDIR/images/dtbo_16_500_stock.img" ;;
     16_501) echo "$MODDIR/images/dtbo_16_501_stock.img" ;;
     1001) echo "$MODDIR/images/dtbo_1001_stock.img" ;;
+    1301) echo "$MODDIR/images/dtbo_1301_stock.img" ;;
     701) echo "$MODDIR/images/dtbo_701_stock.img" ;;
     *) return 1 ;;
   esac
@@ -639,6 +647,7 @@ pps33_image_for_family() (
     16_500) echo "$MODDIR/images/dtbo_16_500_pps33.img" ;;
     16_501) echo "$MODDIR/images/dtbo_16_501_pps33.img" ;;
     1001) echo "$MODDIR/images/dtbo_1001_pps33.img" ;;
+    1301) echo "$MODDIR/images/dtbo_1301_pps33.img" ;;
     701) echo "$MODDIR/images/dtbo_701_pps33.img" ;;
     *) return 1 ;;
   esac
@@ -664,6 +673,7 @@ pps55_image_for_family() (
     16_500) echo "$MODDIR/images/dtbo_16_500_pps55.img" ;;
     16_501) echo "$MODDIR/images/dtbo_16_501_pps55.img" ;;
     1001) echo "$MODDIR/images/dtbo_1001_pps55.img" ;;
+    1301) echo "$MODDIR/images/dtbo_1301_pps55.img" ;;
     701) echo "$MODDIR/images/dtbo_701_pps55.img" ;;
     *) return 1 ;;
   esac
@@ -752,6 +762,7 @@ dtbo_family_for_hash() (
     "$F16_500_STOCK_SHA"|"$F16_500_PPS33_SHA"|"$F16_500_PPS55_SHA") echo 16_500 ;;
     "$F16_501_STOCK_SHA"|"$F16_501_PPS33_SHA"|"$F16_501_PPS55_SHA") echo 16_501 ;;
     "$F1001_STOCK_SHA"|"$F1001_PPS33_SHA"|"$F1001_PPS55_SHA") echo 1001 ;;
+    "$F1301_STOCK_SHA"|"$F1301_PPS33_SHA"|"$F1301_PPS55_SHA") echo 1301 ;;
     "$F701_STOCK_SHA"|"$F701_PPS33_SHA"|"$F701_PPS55_SHA") echo 701 ;;
     *) echo unknown; return 1 ;;
   esac
@@ -759,9 +770,9 @@ dtbo_family_for_hash() (
 
 detect_profile_for_hash() (
   case "$1" in
-    "$F15_401_STOCK_SHA"|"$F15_500_STOCK_SHA"|"$F15_600_STOCK_SHA"|"$F15_701_STOCK_SHA"|"$F15_703_STOCK_SHA"|"$F15_801_STOCK_SHA"|"$F15_820_STOCK_SHA"|"$F15_830_STOCK_SHA"|"$F15_831_STOCK_SHA"|"$F15_840_STOCK_SHA"|"$F15_850_STOCK_SHA"|"$F15_860_STOCK_SHA"|"$F15_861_STOCK_SHA"|"$F301_STOCK_SHA"|"$F400_STOCK_SHA"|"$F16_500_STOCK_SHA"|"$F16_501_STOCK_SHA"|"$F1001_STOCK_SHA"|"$F701_STOCK_SHA") echo stock ;;
-    "$F15_401_PPS33_SHA"|"$F15_500_PPS33_SHA"|"$F15_600_PPS33_SHA"|"$F15_701_PPS33_SHA"|"$F15_703_PPS33_SHA"|"$F15_801_PPS33_SHA"|"$F15_820_PPS33_SHA"|"$F15_830_PPS33_SHA"|"$F15_831_PPS33_SHA"|"$F15_840_PPS33_SHA"|"$F15_850_PPS33_SHA"|"$F15_860_PPS33_SHA"|"$F15_861_PPS33_SHA"|"$F301_PPS33_SHA"|"$F400_PPS33_SHA"|"$F16_500_PPS33_SHA"|"$F16_501_PPS33_SHA"|"$F1001_PPS33_SHA"|"$F701_PPS33_SHA") echo pps33 ;;
-    "$F15_401_PPS55_SHA"|"$F15_500_PPS55_SHA"|"$F15_600_PPS55_SHA"|"$F15_701_PPS55_SHA"|"$F15_703_PPS55_SHA"|"$F15_801_PPS55_SHA"|"$F15_820_PPS55_SHA"|"$F15_830_PPS55_SHA"|"$F15_831_PPS55_SHA"|"$F15_840_PPS55_SHA"|"$F15_850_PPS55_SHA"|"$F15_860_PPS55_SHA"|"$F15_861_PPS55_SHA"|"$F301_PPS55_SHA"|"$F400_PPS55_SHA"|"$F16_500_PPS55_SHA"|"$F16_501_PPS55_SHA"|"$F1001_PPS55_SHA"|"$F701_PPS55_SHA") echo pps55 ;;
+    "$F15_401_STOCK_SHA"|"$F15_500_STOCK_SHA"|"$F15_600_STOCK_SHA"|"$F15_701_STOCK_SHA"|"$F15_703_STOCK_SHA"|"$F15_801_STOCK_SHA"|"$F15_820_STOCK_SHA"|"$F15_830_STOCK_SHA"|"$F15_831_STOCK_SHA"|"$F15_840_STOCK_SHA"|"$F15_850_STOCK_SHA"|"$F15_860_STOCK_SHA"|"$F15_861_STOCK_SHA"|"$F301_STOCK_SHA"|"$F400_STOCK_SHA"|"$F16_500_STOCK_SHA"|"$F16_501_STOCK_SHA"|"$F1001_STOCK_SHA"|"$F1301_STOCK_SHA"|"$F701_STOCK_SHA") echo stock ;;
+    "$F15_401_PPS33_SHA"|"$F15_500_PPS33_SHA"|"$F15_600_PPS33_SHA"|"$F15_701_PPS33_SHA"|"$F15_703_PPS33_SHA"|"$F15_801_PPS33_SHA"|"$F15_820_PPS33_SHA"|"$F15_830_PPS33_SHA"|"$F15_831_PPS33_SHA"|"$F15_840_PPS33_SHA"|"$F15_850_PPS33_SHA"|"$F15_860_PPS33_SHA"|"$F15_861_PPS33_SHA"|"$F301_PPS33_SHA"|"$F400_PPS33_SHA"|"$F16_500_PPS33_SHA"|"$F16_501_PPS33_SHA"|"$F1001_PPS33_SHA"|"$F1301_PPS33_SHA"|"$F701_PPS33_SHA") echo pps33 ;;
+    "$F15_401_PPS55_SHA"|"$F15_500_PPS55_SHA"|"$F15_600_PPS55_SHA"|"$F15_701_PPS55_SHA"|"$F15_703_PPS55_SHA"|"$F15_801_PPS55_SHA"|"$F15_820_PPS55_SHA"|"$F15_830_PPS55_SHA"|"$F15_831_PPS55_SHA"|"$F15_840_PPS55_SHA"|"$F15_850_PPS55_SHA"|"$F15_860_PPS55_SHA"|"$F15_861_PPS55_SHA"|"$F301_PPS55_SHA"|"$F400_PPS55_SHA"|"$F16_500_PPS55_SHA"|"$F16_501_PPS55_SHA"|"$F1001_PPS55_SHA"|"$F1301_PPS55_SHA"|"$F701_PPS55_SHA") echo pps55 ;;
     *) echo unknown; return 1 ;;
   esac
 )

@@ -2,6 +2,11 @@
 MODDIR="${0%/*}"
 . "$MODDIR/common.sh"
 
+# Release only the configured runtime UFCS override before DTBO recovery gates.
+if [ -f "$MODDIR/bin/ufcs_control.sh" ]; then
+  sh "$MODDIR/bin/ufcs_control.sh" restore || echo '[!] UFCS runtime restore failed; reboot to clear the override.'
+fi
+
 device_ok || exit 0
 
 if trusted_slot_conflict; then

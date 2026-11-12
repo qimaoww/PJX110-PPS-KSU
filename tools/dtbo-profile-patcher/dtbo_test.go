@@ -29,8 +29,8 @@ func TestParseBundledImages(t *testing.T) {
 	if err := json.Unmarshal(data, &firmwares); err != nil {
 		t.Fatal(err)
 	}
-	if len(firmwares) != 19 {
-		t.Fatalf("firmware count=%d, want 19", len(firmwares))
+	if len(firmwares) != 20 {
+		t.Fatalf("firmware count=%d, want 20", len(firmwares))
 	}
 	profiles := map[string]profileState{
 		"stock": profileStock,

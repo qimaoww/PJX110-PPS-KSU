@@ -1,60 +1,64 @@
 import {exec, execRead, toast} from './ksu.js';
 import {parseKV, telemetry} from './telemetry.js';
 import {controlState, modeHint, profileName, modeName} from './controls.js';
+import {mountUfcs} from './ufcs.js';
 
 const MODDIR = '/data/adb/modules/PJX110_PPS_KSU';
 const $ = id => document.getElementById(id);
 const dash = value => value === undefined || value === null || String(value).trim() === '' ? '—' : String(value);
 const fmt = (value, digits = 2) => Number.isFinite(value) ? value.toFixed(digits) : '—';
-const readCommand = (script, timeout = 8000) => execRead(`sh '${MODDIR}/bin/${script}'`, timeout);
+const readCommand = (script, timeout = 8000) => execRead(`sh '${MODDIR}/bin/web_read.sh' ${script}`, timeout);
 let controls = controlState({}), snapshot = {}, actionBusy = false, dtboBusy = false;
 let refreshBusy = false, telemetryFlight = null, pollTimer = null, lastTelemetryAt = 0, pollDelay = 5000;
 let pending = null, needsReboot = false, logBusy = false, scanBusy = false;
+let pollGeneration = 0;
+let ufcsPanel;
 
+function setText(id, value) {
+  const node = $(id), text = String(value);
+  if (node.textContent !== text) node.textContent = text;
+}
 function chip(id, label, tone = '') {
-  $(id).textContent = label;
-  $(id).className = `chip${tone ? ` ${tone}` : ''}`;
+  setText(id, label);
+  const name = `chip${tone ? ` ${tone}` : ''}`;
+  if ($(id).className !== name) $(id).className = name;
 }
 function showLog(title, output) {
   $('logCard').hidden = false;
   $('logTitle').textContent = title;
   $('logOutput').textContent = String(output || '(无输出)');
 }
-function clearTelemetry(message = '读取失败') {
-  for (const id of ['pbat','capacity','protocol','temp','vbat','ibat','cells','cellSource',
-    'usbMeasurements','usbPower','icl','protocolSource','usbTypeRaw','usbTypes',
-    'readingSource','batteryHealth','batteryCapacity','chargingPolicy']) $(id).textContent = '—';
-  $('batteryRing').style.setProperty('--level', '0%');
-  $('powerLabel').textContent = '电池功率';
-  $('inputSummary').textContent = 'USB 输入 —';
-  $('lastRefresh').textContent = message;
+function markTelemetryStale(message = '读取失败') {
+  setText('lastRefresh', lastTelemetryAt ? `${message} · 上次读数` : message);
   chip('chargeStatus', message, 'bad');
 }
 function renderTelemetry(data) {
   const t = telemetry(data);
-  $('pbat').textContent = fmt(t.power);
-  $('capacity').textContent = dash(t.capacity);
-  $('batteryRing').style.setProperty('--level', `${t.capacity ?? 0}%`);
-  $('powerLabel').textContent = t.powerEstimated ? '电池功率 · 估算' : '电池功率';
-  $('protocol').textContent = t.proto;
-  $('temp').textContent = fmt(t.temp, 1);
-  $('vbat').textContent = fmt(t.pack, 3);
-  $('ibat').textContent = fmt(t.current, 3);
-  $('inputSummary').textContent = t.usbPower === null ? 'USB 输入 —' : `USB 输入 ${fmt(t.usbPower)} W`;
-  $('lastRefresh').textContent = dash(data.timestamp);
+  setText('bridgeStatus', '正常');
+  setText('pbat', fmt(t.power));
+  setText('capacity', dash(t.capacity));
+  const level = `${t.capacity ?? 0}%`;
+  if ($('batteryRing').style.getPropertyValue('--level') !== level) $('batteryRing').style.setProperty('--level', level);
+  setText('powerLabel', t.powerEstimated ? '电池功率 · 估算' : '电池功率');
+  setText('protocol', t.proto);
+  setText('temp', fmt(t.temp, 1));
+  setText('vbat', fmt(t.pack, 3));
+  setText('ibat', fmt(t.current, 3));
+  setText('inputSummary', t.usbPower === null ? 'USB 输入 —' : `USB 输入 ${fmt(t.usbPower)} W`);
+  setText('lastRefresh', dash(data.timestamp));
   chip('chargeStatus', t.label, t.tone);
-  $('cells').textContent = `${fmt(t.cell1, 3)} / ${fmt(t.cell2, 3)} V`;
-  $('cellSource').textContent = t.cellSource;
-  $('usbMeasurements').textContent = `${fmt(t.usbV, 3)} V / ${fmt(t.usbI, 3)} A`;
-  $('usbPower').textContent = t.usbPower === null ? '—' : `${fmt(t.usbPower)} W`;
-  $('icl').textContent = t.icl === null ? '—' : `${fmt(t.icl, 3)} A`;
-  $('protocolSource').textContent = t.protoSource;
-  $('usbTypeRaw').textContent = dash(data.usb_type_raw);
-  $('usbTypes').textContent = `${dash(data.usb_real_type)} / ${dash(data.typec_mode)}`;
-  $('readingSource').textContent = `${dash(data.usb_v_raw_source)} / ${dash(data.usb_i_raw_source)}`;
-  $('batteryHealth').textContent = `${dash(data.health)} / ${dash(data.cycle_count)}`;
-  $('batteryCapacity').textContent = `${fmt(t.full, 0)} / ${fmt(t.design, 0)} mAh`;
-  $('chargingPolicy').textContent = `${dash(data.mmi_charging_enable)} / ${dash(data.cool_down)}`;
+  setText('cells', `${fmt(t.cell1, 3)} / ${fmt(t.cell2, 3)} V`);
+  setText('cellSource', t.cellSource);
+  setText('usbMeasurements', `${fmt(t.usbV, 3)} V / ${fmt(t.usbI, 3)} A`);
+  setText('usbPower', t.usbPower === null ? '—' : `${fmt(t.usbPower)} W`);
+  setText('icl', t.icl === null ? '—' : `${fmt(t.icl, 3)} A`);
+  setText('protocolSource', t.protoSource);
+  setText('usbTypeRaw', dash(data.usb_type_raw));
+  setText('usbTypes', `${dash(data.usb_real_type)} / ${dash(data.typec_mode)}`);
+  setText('readingSource', `${dash(data.usb_v_raw_source)} / ${dash(data.usb_i_raw_source)}`);
+  setText('batteryHealth', `${dash(data.health)} / ${dash(data.cycle_count)}`);
+  setText('batteryCapacity', `${fmt(t.full, 0)} / ${fmt(t.design, 0)} mAh`);
+  setText('chargingPolicy', `${dash(data.mmi_charging_enable)} / ${dash(data.cool_down)}`);
   lastTelemetryAt = Date.now();
 }
 function refreshTelemetry() {
@@ -67,7 +71,7 @@ function refreshTelemetry() {
       renderTelemetry(parseKV(result.stdout));
       pollDelay = 5000;
     } catch (error) {
-      clearTelemetry(String(error.message || error).includes('超时') ? '读取超时' : '读取失败');
+      markTelemetryStale(String(error.message || error).includes('超时') ? '读取超时' : '读取失败');
       pollDelay = Math.min(pollDelay * 2, 30000);
     } finally {
       telemetryFlight = null;
@@ -75,29 +79,41 @@ function refreshTelemetry() {
   })();
   return telemetryFlight;
 }
+function renderRefresh() {
+  $('refreshBtn').disabled = actionBusy || refreshBusy;
+  $('refreshBtn').setAttribute('aria-busy', String(refreshBusy));
+}
+function renderScan() {
+  $('scanBtn').disabled = actionBusy || scanBusy;
+  setText('scanBtn', scanBusy ? '扫描中…' : '扫描节点');
+  $('scanBtn').setAttribute('aria-busy', String(scanBusy));
+}
 function renderControls() {
+  ufcsPanel?.render();
   for (const [target, id] of [['stock','stockBtn'],['pps33','pps33Btn'],['pps55','pps55Btn']]) {
     const selected = controls.profile === target;
     $(id).classList.toggle('selected', selected);
     $(id).setAttribute('aria-pressed', String(selected));
-    $(id).disabled = actionBusy || dtboBusy || refreshBusy || !controls.canProfile(target);
+    $(id).disabled = actionBusy || dtboBusy || !controls.canProfile(target);
   }
   const full = ['full_static', 'full_dynamic'].includes(controls.mode);
   $('patchModeBtn').classList.toggle('selected', controls.mode === 'patch');
   $('fullModeBtn').classList.toggle('selected', full);
   $('patchModeBtn').setAttribute('aria-pressed', String(controls.mode === 'patch'));
   $('fullModeBtn').setAttribute('aria-pressed', String(full));
-  $('patchModeBtn').disabled = actionBusy || dtboBusy || refreshBusy || !controls.canEnable;
+  $('patchModeBtn').disabled = actionBusy || dtboBusy || !controls.canEnable;
   $('patchModeBtn').textContent = controls.otaPatch ? '检测并使用补丁' : '补丁模式';
-  $('fullModeBtn').disabled = actionBusy || dtboBusy || refreshBusy || !controls.canPromote;
+  $('fullModeBtn').disabled = actionBusy || dtboBusy || !controls.canPromote;
   $('modeHint').textContent = actionBusy ? '正在执行，请勿重启或断电。'
     : dtboBusy ? '正在校验 DTBO…' : modeHint(controls);
   $('rebootHint').textContent = needsReboot ? '已写入 · 请重启' : '应用后需重启';
-  $('refreshBtn').disabled = actionBusy || refreshBusy;
+  renderRefresh();
   $('logBtn').disabled = actionBusy || logBusy;
-  $('scanBtn').disabled = actionBusy || scanBusy;
+  renderScan();
+  $('verifyBtn').disabled = actionBusy || dtboBusy;
+  $('verifyBtn').textContent = dtboBusy ? '校验中…' : '校验 DTBO';
   $('patchCheckBtn').hidden = controls.mode !== 'patch';
-  $('patchCheckBtn').disabled = actionBusy || dtboBusy || refreshBusy || !controls.canRecheck;
+  $('patchCheckBtn').disabled = actionBusy || dtboBusy || !controls.canRecheck;
 }
 async function refreshDtbo() {
   if (dtboBusy || actionBusy) return;
@@ -147,18 +163,19 @@ async function refreshDevice() {
 async function refreshAll() {
   if (refreshBusy || actionBusy) return;
   refreshBusy = true;
-  $('refreshBtn').textContent = '↻';
-  document.body.setAttribute('aria-busy', 'true');
-  renderControls();
-  try { await Promise.all([refreshTelemetry(), refreshDevice(), refreshDtbo()]); }
+  renderRefresh();
+  // Let the pressed/loading feedback paint before crossing the native bridge.
+  try {
+    await new Promise(resolve => setTimeout(resolve, 32));
+    await Promise.allSettled([refreshTelemetry(), ufcsPanel?.refresh()]);
+  }
   finally {
     refreshBusy = false;
-    document.body.setAttribute('aria-busy', 'false');
-    renderControls();
+    renderRefresh();
   }
 }
 function isAllowed(action) {
-  if (!action || actionBusy || dtboBusy || refreshBusy) return false;
+  if (!action || actionBusy || dtboBusy) return false;
   if (action.signature && action.signature !== snapshotSignature()) return false;
   return action.type === 'profile' ? controls.canProfile(action.target)
     : action.type === 'enable' ? controls.canEnable
@@ -218,12 +235,14 @@ async function applyAction() {
   } finally {
     actionBusy = false;
     await refreshAll();
+    await refreshDtbo();
     scheduleTelemetry();
   }
 }
 async function loadLog() {
   if (actionBusy || logBusy) return;
   logBusy = true;
+  clearTimeout(pollTimer);
   renderControls();
   try {
     const result = await readCommand('charging_log.sh', 15000);
@@ -231,20 +250,31 @@ async function loadLog() {
     // dmesg is historical. Never use it to replace current live measurements.
     showLog('充电日志 · 历史记录', result.stdout);
   } catch (error) { showLog('日志读取失败', String(error)); }
-  finally { logBusy = false; renderControls(); }
+  finally { logBusy = false; renderControls(); scheduleTelemetry(); }
 }
 async function scanNodes() {
   if (actionBusy || scanBusy) return;
   scanBusy = true;
   $('nodeOutput').hidden = false;
   $('nodeOutput').textContent = '正在扫描…';
-  renderControls();
+  $('nodeOutput').setAttribute('aria-busy', 'true');
+  renderScan();
   try {
-    const result = await readCommand('details.sh', 15000);
-    if (result.errno !== 0) throw new Error(result.stderr || '扫描失败');
-    $('nodeOutput').textContent = Object.values(parseKV(result.stdout)).join('\n') || '未找到可读节点';
+    await new Promise(resolve => setTimeout(resolve, 32));
+    const result = await readCommand('details.sh', 10000);
+    const data = parseKV(result.stdout);
+    const lines = Object.entries(data).filter(([key]) => /^detail_\d+$/.test(key))
+      .slice(0, 32).map(([,value]) => value);
+    const incomplete = result.errno !== 0 || data.scan_complete !== '1';
+    if (incomplete && !lines.length) throw new Error('扫描未完成，请重试');
+    $('nodeOutput').textContent = (lines.join('\n') || '未找到可读节点')
+      + (incomplete ? '\n\n扫描超时，已保留读取结果。' : data.scan_limited === '1' ? '\n\n已达到扫描上限。' : '');
   } catch (error) { $('nodeOutput').textContent = String(error); }
-  finally { scanBusy = false; renderControls(); }
+  finally {
+    scanBusy = false;
+    $('nodeOutput').setAttribute('aria-busy', 'false');
+    renderScan();
+  }
 }
 async function copyLog() {
   const text = $('logOutput').textContent;
@@ -261,10 +291,11 @@ async function copyLog() {
 }
 function scheduleTelemetry() {
   clearTimeout(pollTimer);
-  if (document.hidden || actionBusy) return;
+  const generation = ++pollGeneration;
+  if (document.hidden || actionBusy || logBusy) return;
   pollTimer = setTimeout(async () => {
-    await refreshTelemetry();
-    scheduleTelemetry();
+    try { await Promise.allSettled([refreshTelemetry(), ufcsPanel?.refresh()]); }
+    finally { if (generation === pollGeneration) scheduleTelemetry(); }
   }, pollDelay);
 }
 for (const [target, id] of [['stock','stockBtn'],['pps33','pps33Btn'],['pps55','pps55Btn']]) $(id).addEventListener('click', () => ask({type: 'profile', target}));
@@ -280,16 +311,27 @@ $('confirmDialog').addEventListener('click', event => {
   if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) closeDialog();
 });
 $('refreshBtn').addEventListener('click', refreshAll);
+$('verifyBtn').addEventListener('click', () => { void refreshDtbo(); });
 $('logBtn').addEventListener('click', loadLog);
 $('scanBtn').addEventListener('click', scanNodes);
 $('copyLogBtn').addEventListener('click', copyLog);
 $('closeLog').addEventListener('click', () => { $('logCard').hidden = true; });
 document.addEventListener('visibilitychange', async () => {
   clearTimeout(pollTimer);
+  const generation = ++pollGeneration;
   if (!document.hidden) {
-    if (Date.now() - lastTelemetryAt > 15000) clearTelemetry('更新中');
-    await refreshTelemetry(); scheduleTelemetry();
+    if (logBusy) return;
+    if (Date.now() - lastTelemetryAt > 15000) markTelemetryStale('更新中');
+    await Promise.allSettled([refreshTelemetry(), ufcsPanel?.refresh()]);
+    if (generation === pollGeneration) scheduleTelemetry();
   }
 });
+ufcsPanel = mountUfcs({busy: () => actionBusy, setBusy: value => {
+  actionBusy = value;
+  if (value) clearTimeout(pollTimer);
+  renderControls();
+}, afterAction: () => { renderControls(); scheduleTelemetry(); }});
 await refreshAll();
 scheduleTelemetry();
+void refreshDevice();
+void refreshDtbo();

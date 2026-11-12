@@ -52,6 +52,9 @@ run_install() {
 run_install 400 "$REPO/images/dtbo_400_pps33.img" || fail install-400-pps
 run_install 15_500 "$REPO/images/dtbo_15_500_stock.img" || fail install-15-500
 run_install 16_500 "$REPO/images/dtbo_16_500_stock.img" || fail install-16-500
+run_install 1301 "$REPO/images/dtbo_1301_stock.img" || fail install-1301-stock
+run_install 1301 "$REPO/images/dtbo_1301_pps33.img" || fail install-1301-pps33
+run_install 1301 "$REPO/images/dtbo_1301_pps55.img" || fail install-1301-pps55
 run_install unknown "$REPO/investigation/sim_unknown_stock.img" || fail install-unknown
 CONFLICT=1
 run_install conflict "$REPO/images/dtbo_15_500_stock.img" || fail install-conflicting-slots

@@ -1,6 +1,6 @@
 id=PJX110_PPS_KSU
 name=PJX110-PPS-KSU
-version=v1.2.0
-versionCode=12000
+version=v1.2.1
+versionCode=12001
 author=qimaoaa
-description=一加 Ace 3 Pro 原厂 / 33W / 55W PPS 切换与充电监测。仅写 DTBO、保留完整 AVB；仅 400 固件已实测，其余待验证。
+description=一加 Ace 3 Pro：PPS 切换、充电信息、UFCS 开关。仅刷 DTBO，保留 AVB；补丁模式未实测。

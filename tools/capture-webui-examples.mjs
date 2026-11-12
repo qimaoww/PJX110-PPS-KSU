@@ -135,7 +135,9 @@ try {
     console.log('CAPTURED '+example.id+' · '+example.title);
     await page.close();
   }
-  const zipPath=join(repo,'dist','PJX110-PPS-KSU-v1.2.0.zip');
+  const version=(await readFile(join(repo,'module.prop'),'utf8')).match(/^version=(v[0-9.]+)$/m)?.[1];
+  if(!version) throw new Error('Invalid module version');
+  const zipPath=join(repo,'dist',`PJX110-PPS-KSU-${version}.zip`);
   const zipData=await readFile(zipPath);
   const zipSHA=createHash('sha256').update(zipData).digest('hex');
   const inventory=JSON.parse(execFileSync('pwsh',['-NoLogo','-NoProfile','-Command',`

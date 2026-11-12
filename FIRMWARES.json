@@ -170,6 +170,16 @@
     "hardware_tested": false
   },
   {
+    "family": "1301",
+    "firmware": "PJX110_16.0.5.1301",
+    "source_zip": "ColorOS PJX110_16.0.5.1301(CN01) F.18/f5177f26fb6a4ad8bf95fd8197b3b471.zip",
+    "post_build": "OnePlus/PJX110/OP5D06L1:16/UKQ1.231108.001/U.1161b4b_1510d9c_1510d9a:user/release-keys",
+    "stock_sha": "1ed2fc69635547623d7c2f2ae78388349c3010cd1ab7c949a5fe97a57f96633b",
+    "pps33_sha": "6e89a396b296eff3775b4d854886e541554d4e502a4ad0c67d9925dbbaeebc96",
+    "pps55_sha": "e55e46dcff5506f2448e3a5591af74bbcc1c794fd20db4afbeb8ad7f7481b857",
+    "hardware_tested": false
+  },
+  {
     "family": "1001",
     "firmware": "PJX110_16.0.5.1001",
     "source_zip": "ColorOS PJX110_16.0.5.1001(CN01) F.17/dcca57236a18485e97239152a6a6e434.zip",

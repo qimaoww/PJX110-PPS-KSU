@@ -7,8 +7,8 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../../',import.meta.url));
 const catalog=JSON.parse(fs.readFileSync(path.join(root,'FIRMWARES.json'),'utf8'));
-test('19 firmware triplets have unique hashes, intact AVB and correct file identities',()=>{
-  assert.equal(catalog.length,19);
+test('20 firmware triplets have unique hashes, intact AVB and correct file identities',()=>{
+  assert.equal(catalog.length,20);
   const hashes=new Set(),versions=new Set(),families=new Set();
   for(const rom of catalog){
     assert.match(rom.family,/^\d+(?:_\d+)?$/);assert.match(rom.firmware,/^PJX110_(15|16)\.\d+\.\d+\.\d+$/);
@@ -24,7 +24,8 @@ test('19 firmware triplets have unique hashes, intact AVB and correct file ident
     }
     assert.equal(rom.hardware_tested,rom.family==='400');
   }
-  assert.equal(hashes.size,57);
+  assert.equal(hashes.size,60);
+  assert.equal(catalog.find(r=>r.family==='1301').firmware,'PJX110_16.0.5.1301');
   assert.equal(catalog.find(r=>r.family==='15_500').firmware,'PJX110_15.0.0.500');
   assert.equal(catalog.find(r=>r.family==='16_500').firmware,'PJX110_16.0.3.500');
   assert.equal(catalog.find(r=>r.family==='15_701').firmware,'PJX110_15.0.0.701');

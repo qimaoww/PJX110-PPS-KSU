@@ -1,6 +1,6 @@
 #!/system/bin/sh
 ui_print "----------------------------------------"
-ui_print " Ace 3 Pro PPS v1.2.0"
+ui_print " Ace 3 Pro PPS v1.2.1"
 ui_print "----------------------------------------"
 
 MODDIR="$MODPATH"
@@ -14,6 +14,7 @@ fi
 
 set_perm "$MODPATH/uninstall.sh" 0 0 0755
 set_perm "$MODPATH/common.sh" 0 0 0755
+set_perm "$MODPATH/service.sh" 0 0 0755
 set_perm_recursive "$MODPATH/bin" 0 0 0755 0755
 set_perm_recursive "$MODPATH/templates" 0 0 0755 0644
 set_perm_recursive "$MODPATH/rescue" 0 0 0755 0755
