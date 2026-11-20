@@ -19,7 +19,7 @@ const firmware = family => catalog.find(row => row.family === family);
 const current = firmware('1001'), legacy = firmware('400'), old = firmware('701');
 const p33 = 'fd5c261d450643ac5f66f90628ea3021958a49314a6fa8e6d1b54557d9b8bb45';
 const p55 = 'a8e3ac98f3f68df08e6856c2291167944e683d9014fa15b4bb223b054313a95a';
-const state = {state:'stock',management_mode:'full_static',sha256:current.stock_sha,slot:'B',slot_suffix:'_b',
+const state = {state:'stock',management_mode:'stock_idle',sha256:current.stock_sha,slot:'B',slot_suffix:'_b',
   slot_source:'bootconfig',trusted_slot_available:'1',trusted_slot_conflict:'0',prop_slot_conflict:'0',
   patch_driver_compatible:'1',patch_runtime_assets_compatible:'1',dynamic_assets_complete:'1',
   static_assets_complete:'0',static_stock_available:'0',ota_patch_available:'1',patch_can_enable:'1',
@@ -27,7 +27,7 @@ const state = {state:'stock',management_mode:'full_static',sha256:current.stock_
   rescue_ready:'0',rescue_last_written_slot:'none',stock_sha:current.stock_sha,pps33_sha:p33,pps55_sha:p55};
 const patchState = {...state,management_mode:'patch',dtbo_family:`动态生成 / ${current.firmware}`,
   ota_patch_available:'0',patch_can_enable:'0',patch_can_promote:'1',patch_can_recheck:'1',rescue_ready:'1'};
-const fullState = {...patchState,management_mode:'full_dynamic',patch_can_promote:'0',patch_can_recheck:'0'};
+const fullState = {...patchState,management_mode:'full_dynamic',full_stock_patch_available:'1',patch_can_enable:'1',patch_can_promote:'0',patch_can_recheck:'0'};
 const telemetry = {schema:'2',state:'ok',timestamp:'模拟读数',status:'Charging',capacity:'63',capacity_unit:'percent',
   vbat_raw:'4180000',vbat_raw_unit:'uV',ibat_raw:'-2650',ibat_raw_unit:'mA',temp_raw:'325',temp_raw_unit:'deciC',
   cell1_raw:'4190',cell1_raw_unit:'cellV',cell2_raw:'4180',cell2_raw_unit:'cellV',
@@ -45,12 +45,12 @@ const examples = [
   {id:'03-enable-confirm',title:'手动启用补丁的确认',caption:'先做驱动、DTBO、AVB、备份与救援校验；登记过程不写分区。',data:state,action:'patchModeBtn',focus:'#confirmDialog'},
   {id:'04-patch-stock',title:'启用后的补丁模式',caption:'当前仍为原厂；PPS 操作和手动切换全分区入口才会解锁。',data:patchState},
   {id:'05-unknown-dtbo',title:'未内置的 DTBO',caption:'不能直接刷全分区；只能手动检测并登记兼容的原厂 DTBO。',data:{...state,state:'unknown',management_mode:'none',ota_patch_available:'0',dtbo_family:'待检测 / '+current.firmware,sha256:'a153396e7203c95ccce1065b501fc1253751ed9c6b9666d748aa57d9ac7b6560'}},
-  {id:'06-static-400',title:'内置全分区模式保持独立',caption:'以 400 为例：原厂 / 33W / 55W 可用，但不能使用补丁模式。',data:{...state,sha256:legacy.stock_sha,system_firmware:legacy.firmware,dtbo_family:legacy.firmware,
-    static_assets_complete:'1',static_stock_available:'1',ota_patch_available:'0',patch_can_enable:'0'}},
+  {id:'06-static-400',title:'400 原厂 · 两种模式可选',caption:'原厂不默认选中模式。补丁和内置全分区两个入口均可使用。',data:{...state,sha256:legacy.stock_sha,stock_sha:legacy.stock_sha,system_firmware:legacy.firmware,dtbo_family:legacy.firmware,
+    static_assets_complete:'1',static_stock_available:'1',static_full_selectable:'1',ota_patch_available:'0',full_stock_patch_available:'1',patch_can_enable:'1'}},
   {id:'07-pps-confirm',title:'PPS 写入前确认',caption:'明确仅写当前 B 槽 DTBO、保留 AVB、回读校验；未实测固件有警告。',data:patchState,action:'pps33Btn',focus:'#confirmDialog'},
   {id:'08-patch-pps33',title:'补丁模式的 33W 档',caption:'33W 是当前档位，原厂恢复和 55W 可选择；未混入内置镜像集。',data:patchPPS},
-  {id:'09-promote-confirm',title:'手动切换全分区的确认',caption:'重新生成并校验完整镜像；同一 DTBO 版本不能回切补丁，不自动换档。',data:patchState,action:'fullModeBtn',focus:'#confirmDialog'},
-  {id:'10-full-locked',title:'动态全分区：禁止回切',caption:'全分区模式被选中，补丁按钮禁用；原厂 / PPS 档位仍由全分区入口管理。',data:fullState},
+  {id:'09-promote-confirm',title:'手动切换全分区的确认',caption:'原厂状态下重新生成并校验完整镜像；不刷分区、不自动换档。',data:patchState,action:'fullModeBtn',focus:'#confirmDialog'},
+  {id:'10-full-stock',title:'动态全分区 · 已恢复原厂',caption:'已登记全分区的槽位恢复原厂后，可重新校验并手动切到补丁。',data:fullState},
   {id:'11-patch-runtime-broken',title:'补丁资源异常：只准恢复原厂',caption:'当前 33W；驱动或动态工具不兼容后，禁止 PPS 和全分区切换。',data:{...patchPPS,patch_runtime_assets_compatible:'0',patch_can_promote:'0'}},
   {id:'12-full-set-incomplete',title:'全分区镜像不完整',caption:'当前 55W；只保留已验证的原厂恢复，不能借此回切补丁。',data:{...fullState,state:'pps55',sha256:p55,dynamic_assets_complete:'0',rescue_last_written_slot:'B'}},
   {id:'13-stock-recheck',title:'原厂恢复后可重检补丁',caption:'资源不完整时 PPS 继续禁用；详情中可手动重新校验并修复备份。',data:patchRepair,details:true},
@@ -58,7 +58,7 @@ const examples = [
   {id:'15-slot-conflict',title:'可信槽位来源冲突',caption:'不能确定唯一 DTBO 写入目标时，所有写入与模式切换操作禁用。',data:{...patchState,trusted_slot_conflict:'1',management_mode:'error',patch_can_promote:'0',patch_can_recheck:'0'}},
   {id:'16-system-dtbo-version',title:'系统版本与 DTBO 匹配结果分开',caption:'示例系统显示 1001、DTBO 哈希匹配 701；镜像选择只跟 DTBO 哈希，不跟属性。',data:{...state,sha256:old.stock_sha,dtbo_family:old.firmware,
     static_assets_complete:'1',static_stock_available:'1',ota_patch_available:'0',patch_can_enable:'0',rescue_ready:'1'},details:true},
-  {id:'17-recovery',title:'启动失败恢复入口',caption:'删除模块不会撤销 DTBO；页面给出 Recovery 挂载 /data 后的检查和恢复命令。',data:patchPPS,recovery:true,focus:'details:not(#diagnostics)'},
+  {id:'17-recovery',title:'启动失败恢复入口',caption:'删除模块不会撤销 DTBO；页面给出 Recovery 挂载 /data 后的检查和恢复命令。',data:patchPPS,recovery:true,focus:'details.card:not(#diagnostics)'},
   {id:'18-stock-restore-confirm',title:'恢复原厂也要确认',caption:'仅恢复当前 B 槽的精确原厂 DTBO，保留 AVB 并验证完整回读。',data:patchPPS,action:'stockBtn',focus:'#confirmDialog'},
   {id:'19-disconnected',title:'拔线后不显示残留 PPS / USB 功率',caption:'充电信息是模拟读数；未连接时 USB 输入被清空，协议显示未连接。',data:patchPPS,
     measurements:{...telemetry,status:'Discharging',usb_online:'0',ac_online:'0',ibat_raw:'-900'},focus:'.card[aria-label="实时充电信息"]'},
@@ -93,6 +93,7 @@ try {
         if(command.includes('dtbo_state.sh')) text=kv(data);
         else if(command.includes('boot_state.sh')) text=kv({boot_state:'已解锁',system_firmware:data.system_firmware});
         else if(command.includes('status.sh')) text=kv(measurements);
+        else if(command.endsWith(' ufcs_control.sh status')) text=kv({schema:1,state:'ok',active:0,value:0,effective_disabled:0,boot_apply:0,configured_disable:0,config_valid:1,can_set:1});
         else throw new Error('Screenshots allow only mock READ commands: '+command);
         queueMicrotask(()=>window[callback](0,text,''));
       }};
@@ -102,7 +103,7 @@ try {
       && !document.querySelector('#refreshBtn').disabled && document.querySelector('#lastRefresh').textContent==='模拟读数');
     await page.evaluate(()=>document.fonts.ready);
     if(example.details) await page.locator('#diagnostics').evaluate(el=>{el.open=true;});
-    if(example.recovery) await page.locator('details:not(#diagnostics)').evaluate(el=>{el.open=true;});
+    if(example.recovery) await page.locator('details.card:not(#diagnostics)').evaluate(el=>{el.open=true;});
     if(example.action) {
       assert.equal(await page.locator('#'+example.action).isDisabled(),false,example.id+' unavailable action');
       await page.locator('#'+example.action).click();
@@ -111,18 +112,18 @@ try {
     await page.evaluate(()=>window.scrollTo(0,0));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,example.id+' overflow');
     assert.deepEqual(pageErrors,[],example.id);
-    assert.equal(await page.evaluate(()=>window.__commands.every(c=>/\/(dtbo_state|boot_state|status)\.sh/.test(c))),true);
+    assert.equal(await page.evaluate(()=>window.__commands.every(c=>/^sh '\/data\/adb\/modules\/PJX110_PPS_KSU\/bin\/web_read\.sh' (dtbo_state\.sh|boot_state\.sh|status\.sh|ufcs_control\.sh status)$/.test(c))),true);
     const screenshot = join(output,'raw',example.id+'.png');
     await page.screenshot({path:screenshot,fullPage:!example.action,animations:'disabled'});
     let focus=example.focus || '.control';
-    if(example.id==='19-disconnected') focus='.card:not(.control):not(details):not(.log-card)';
+    if(example.id==='19-disconnected') focus='section[aria-label="实时充电"]';
     if(example.id==='13-stock-recheck') {
       await page.locator('#diagnostics .tools').screenshot({path:join(output,'focus',example.id+'-actions.png'),animations:'disabled'});
       example.extraImage='focus/'+example.id+'-actions.png';
     }
     if(example.id==='16-system-dtbo-version') focus='#diagnostics';
     if(example.id==='16-system-dtbo-version') {
-      await page.locator('.card:not(.control):not(details):not(.log-card) .row').screenshot({path:join(output,'focus',example.id+'-system.png'),animations:'disabled'});
+      await page.locator('section[aria-label="实时充电"] .row').first().screenshot({path:join(output,'focus',example.id+'-system.png'),animations:'disabled'});
       example.extraImage='focus/'+example.id+'-system.png';
       example.extraCaption='系统固件版本：从 Android 属性读取';
       example.extraBefore=true;
@@ -137,7 +138,8 @@ try {
   }
   const version=(await readFile(join(repo,'module.prop'),'utf8')).match(/^version=(v[0-9.]+)$/m)?.[1];
   if(!version) throw new Error('Invalid module version');
-  const zipPath=join(repo,'dist',`PJX110-PPS-KSU-${version}.zip`);
+  const zipPath=resolve(process.argv[3] || join(repo,'dist',`PJX110-PPS-KSU-${version}.zip`));
+  if(!zipPath.startsWith(join(repo,'dist')+sep)) throw new Error('Expected a local module build');
   const zipData=await readFile(zipPath);
   const zipSHA=createHash('sha256').update(zipData).digest('hex');
   const inventory=JSON.parse(execFileSync('pwsh',['-NoLogo','-NoProfile','-Command',`
@@ -176,7 +178,7 @@ try {
   const extraImage=(example,compact)=>compact&&example.extraImage?`<div class="extra">${escape(example.extraCaption||'状态详情底部的工具按钮')}<img src="${example.extraImage}" alt="${escape(example.extraCaption||'重检补丁工具按钮')}"></div>`:'';
   const card=(example,compact=false)=>`<article class="example ${!compact&&example.width?'wide':''}" id="${example.id}"><div class="cap"><span class="num">${example.id.slice(0,2)}</span><h2>${escape(example.title)}</h2><p>${escape(example.caption)}</p><span class="label">${example.report?'本地文件检查 · 非手机截图':'WebUI 实际渲染 · 模拟 KSU 数据'}</span></div>${example.extraBefore?extraImage(example,compact):''}<a class="image ${compact?'':'thumb'}" href="${example.raw}"><img src="${compact?example.focusImage:example.raw}" alt="${escape(example.title)}"></a>${!example.extraBefore?extraImage(example,compact):''}<a class="more" href="${example.raw}">打开完整原图 ↗</a></article>`;
   const groups=[{name:'01-ota-entry',title:'OTA、缺镜像与补丁入口',ids:examples.slice(0,6)},
-    {name:'02-modes-safety',title:'档位、单向切换与损坏资源门禁',ids:examples.slice(6,12)},
+    {name:'02-modes-safety',title:'档位、原厂模式切换与损坏资源门禁',ids:examples.slice(6,12)},
     {name:'03-status-recovery',title:'重检、槽位、版本读取与恢复',ids:examples.slice(12,18)},
     {name:'04-charging-install',title:'充电状态、宽屏与安装包',ids:examples.slice(18)}];
   for(const group of groups) {

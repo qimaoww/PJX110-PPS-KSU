@@ -12,6 +12,7 @@ let controls = controlState({}), snapshot = {}, actionBusy = false, dtboBusy = f
 let refreshBusy = false, telemetryFlight = null, pollTimer = null, lastTelemetryAt = 0, pollDelay = 5000;
 let pending = null, needsReboot = false, logBusy = false, scanBusy = false;
 let pollGeneration = 0;
+let dtboReadError = '', phase = '', activeRequest = null, ufcsBusy = false;
 let ufcsPanel;
 
 function setText(id, value) {
@@ -62,7 +63,7 @@ function renderTelemetry(data) {
   lastTelemetryAt = Date.now();
 }
 function refreshTelemetry() {
-  if (document.hidden || actionBusy) return Promise.resolve();
+  if (document.hidden) return Promise.resolve();
   if (telemetryFlight) return telemetryFlight;
   telemetryFlight = (async () => {
     try {
@@ -80,51 +81,55 @@ function refreshTelemetry() {
   return telemetryFlight;
 }
 function renderRefresh() {
-  $('refreshBtn').disabled = actionBusy || refreshBusy;
+  $('refreshBtn').disabled = refreshBusy;
   $('refreshBtn').setAttribute('aria-busy', String(refreshBusy));
 }
 function renderScan() {
-  $('scanBtn').disabled = actionBusy || scanBusy;
+  $('scanBtn').disabled = scanBusy;
   setText('scanBtn', scanBusy ? '扫描中…' : '扫描节点');
   $('scanBtn').setAttribute('aria-busy', String(scanBusy));
 }
 function renderControls() {
-  ufcsPanel?.render();
+  const locked = actionBusy || dtboBusy || ufcsBusy || Boolean(pending);
   for (const [target, id] of [['stock','stockBtn'],['pps33','pps33Btn'],['pps55','pps55Btn']]) {
     const selected = controls.profile === target;
     $(id).classList.toggle('selected', selected);
     $(id).setAttribute('aria-pressed', String(selected));
-    $(id).disabled = actionBusy || dtboBusy || !controls.canProfile(target);
+    $(id).disabled = locked || !controls.canProfile(target);
   }
   const full = ['full_static', 'full_dynamic'].includes(controls.mode);
   $('patchModeBtn').classList.toggle('selected', controls.mode === 'patch');
   $('fullModeBtn').classList.toggle('selected', full);
+  // A request is not a selection: aria-pressed only reflects verified state.
+  const requested = pending?.type || activeRequest;
+  $('patchModeBtn').classList.toggle('requested', requested === 'enable' || requested === 'recheck');
+  $('fullModeBtn').classList.toggle('requested', requested === 'selectStatic' || requested === 'promote');
   $('patchModeBtn').setAttribute('aria-pressed', String(controls.mode === 'patch'));
   $('fullModeBtn').setAttribute('aria-pressed', String(full));
-  $('patchModeBtn').disabled = actionBusy || dtboBusy || !controls.canEnable;
-  $('patchModeBtn').textContent = controls.otaPatch ? '检测并使用补丁' : '补丁模式';
-  $('fullModeBtn').disabled = actionBusy || dtboBusy || !controls.canPromote;
-  $('modeHint').textContent = actionBusy ? '正在执行，请勿重启或断电。'
-    : dtboBusy ? '正在校验 DTBO…' : modeHint(controls);
-  $('rebootHint').textContent = needsReboot ? '已写入 · 请重启' : '应用后需重启';
-  renderRefresh();
-  $('logBtn').disabled = actionBusy || logBusy;
-  renderScan();
-  $('verifyBtn').disabled = actionBusy || dtboBusy;
-  $('verifyBtn').textContent = dtboBusy ? '校验中…' : '校验 DTBO';
+  $('patchModeBtn').disabled = locked || !controls.canEnable;
+  setText('patchModeBtn', controls.otaPatch ? '检测并使用补丁' : '补丁模式');
+  $('fullModeBtn').disabled = locked || !(controls.canSelectStatic || controls.canPromote);
+  $('modeHint').hidden = Boolean(pending && pending.type !== 'profile');
+  setText('modeHint', phase || (dtboBusy ? '正在校验 DTBO…' : dtboReadError || modeHint(controls)));
+  setText('rebootHint', needsReboot ? '已写入 · 请重启' : '更改档位后需重启');
+  $('modeRetry').hidden = !dtboReadError || dtboBusy;
+  $('verifyBtn').disabled = actionBusy || dtboBusy || Boolean(pending);
+  setText('verifyBtn', dtboBusy ? '校验中…' : '校验 DTBO');
   $('patchCheckBtn').hidden = controls.mode !== 'patch';
-  $('patchCheckBtn').disabled = actionBusy || dtboBusy || !controls.canRecheck;
+  $('patchCheckBtn').disabled = locked || !controls.canRecheck;
 }
 async function refreshDtbo() {
-  if (dtboBusy || actionBusy) return;
+  if (dtboBusy || actionBusy || pending) return;
   dtboBusy = true;
+  dtboReadError = '';
   renderControls();
   try {
-    const result = await readCommand('dtbo_state.sh', 30000);
-    if (result.errno !== 0) throw new Error(result.stderr || 'DTBO 读取失败');
+    const result = await readCommand('dtbo_state.sh', 65000);
+    if ([124,137].includes(result.errno)) throw new Error('DTBO 校验超时');
+    if (result.errno !== 0) throw new Error(result.stderr || parseKV(result.stdout).message || 'DTBO 读取失败');
     snapshot = parseKV(result.stdout);
     controls = controlState(snapshot);
-    $('dtboLabel').textContent = controls.profile === 'unknown' ? '尚未识别' : profileName(controls.profile);
+    $('dtboLabel').textContent = controls.profile === 'stock' ? '原厂 DTBO' : controls.profile === 'unknown' ? '尚未识别' : profileName(controls.profile);
     chip('slotBadge', `槽位 ${dash(snapshot.slot)}`, controls.valid ? '' : 'bad');
     if (snapshot.system_firmware) $('systemFirmware').textContent = snapshot.system_firmware;
     $('dtboFamily').textContent = dash(snapshot.dtbo_family);
@@ -140,6 +145,7 @@ async function refreshDtbo() {
     snapshot = {};
     controls = controlState({});
     $('dtboLabel').textContent = String(error.message || error).includes('超时') ? '校验超时' : '读取失败';
+    dtboReadError = `${$('dtboLabel').textContent}，请重新校验 DTBO。`;
     chip('slotBadge', '不可写入', 'bad');
     for (const id of ['dtboFamily','managementMode','slotSource','slotConflict','sha','rescueStatus','rescueLastSlot']) $(id).textContent = '—';
   } finally {
@@ -161,7 +167,7 @@ async function refreshDevice() {
   }
 }
 async function refreshAll() {
-  if (refreshBusy || actionBusy) return;
+  if (refreshBusy) return;
   refreshBusy = true;
   renderRefresh();
   // Let the pressed/loading feedback paint before crossing the native bridge.
@@ -175,10 +181,11 @@ async function refreshAll() {
   }
 }
 function isAllowed(action) {
-  if (!action || actionBusy || dtboBusy) return false;
+  if (!action || actionBusy || ufcsBusy || dtboBusy) return false;
   if (action.signature && action.signature !== snapshotSignature()) return false;
   return action.type === 'profile' ? controls.canProfile(action.target)
     : action.type === 'enable' ? controls.canEnable
+      : action.type === 'selectStatic' ? controls.canSelectStatic
       : action.type === 'recheck' ? controls.canRecheck
       : action.type === 'promote' && controls.canPromote;
 }
@@ -186,16 +193,20 @@ function snapshotSignature() {
   return `${snapshot.sha256 || ''}:${snapshot.slot_suffix || ''}:${controls.mode}`;
 }
 function ask(action) {
-  if (!isAllowed(action)) return;
-  pending = {...action, signature: snapshotSignature()};
+  if (pending || !isAllowed(action)) return;
+  pending = {...action, signature: snapshotSignature(), trigger: document.activeElement};
   if (action.type === 'enable' || action.type === 'recheck') {
     $('confirmTitle').textContent = action.type === 'recheck' ? '重新检测补丁' : '启用补丁模式';
     $('confirmText').textContent = `${controls.otaPatch ? '仅为 OTA 换入的新原厂 DTBO 启用补丁。' : ''}检测驱动、DTBO 与 AVB，并保存精确原厂备份和救援快照。本操作不写入分区。`;
     $('confirmBtn').textContent = action.type === 'recheck' ? '重新检测' : '检测并启用';
+  } else if (action.type === 'selectStatic') {
+    $('confirmTitle').textContent = '使用内置全分区模式';
+    $('confirmText').textContent = '校验当前槽的原厂、33W 和 55W 内置镜像。仅记录选择，不写入分区。';
+    $('confirmBtn').textContent = '选择全分区';
   } else if (action.type === 'promote') {
     $('confirmTitle').textContent = '切换全分区模式';
-    $('confirmText').textContent = '重新生成并校验三个完整镜像。同一 DTBO 版本不能返回补丁模式，不会自动切换档位。';
-    $('confirmBtn').textContent = '确认单向切换';
+    $('confirmText').textContent = '重新生成并校验三个完整镜像。仅切换管理模式，不写入分区。';
+    $('confirmBtn').textContent = '确认切换';
   } else {
     const stock = action.target === 'stock';
     $('confirmTitle').textContent = `${stock ? '恢复' : '切换'}${profileName(action.target)}`;
@@ -203,57 +214,79 @@ function ask(action) {
     $('confirmText').textContent = `仅写入当前 ${dash(snapshot.slot)} 槽 DTBO，保留 AVB 并回读校验。${stock ? '' : tested ? '' : '当前固件的 PPS 未经实机验证。'}${action.target === 'pps55' ? '需 5A PPS 充电器与线材。' : ''}完成后需重启。`;
     $('confirmBtn').textContent = stock ? '恢复原厂' : '确认写入';
   }
-  $('confirmDialog').showModal();
+  const dialog = $('confirmDialog');
+  dialog.classList.toggle('inline-confirm', action.type !== 'profile');
+  if (action.type === 'profile') dialog.showModal(); else dialog.show();
+  renderControls();
 }
 function closeDialog() {
+  const trigger = pending?.trigger;
   pending = null;
   $('confirmDialog').close();
+  renderControls();
+  trigger?.focus({preventScroll:true});
 }
 async function applyAction() {
   const action = pending;
+  if (!action) return;
   closeDialog();
   if (!isAllowed(action)) { toast('状态已变化，请刷新后重试'); return; }
   actionBusy = true;
-  clearTimeout(pollTimer);
+  activeRequest = action.type;
+  phase = {enable:'正在检测补丁并备份原厂 DTBO…', recheck:'正在重新检测补丁…',
+    selectStatic:'正在校验内置镜像…', promote:'正在生成并校验全分区镜像…', profile:'正在写入并回读 DTBO，请勿重启。'}[action.type];
+  $('actionDetails').hidden = true;
+  $('actionDetails').open = false;
+  ufcsPanel?.render();
   renderControls();
   const command = action.type === 'enable' ? `sh '${MODDIR}/bin/patch_mode.sh' enable`
     : action.type === 'recheck' ? `sh '${MODDIR}/bin/patch_mode.sh' recheck`
     : action.type === 'promote' ? `sh '${MODDIR}/bin/promote_full.sh'`
+    : action.type === 'selectStatic' ? `sh '${MODDIR}/bin/select_static_full.sh' '${snapshot.slot_suffix}' '${snapshot.sha256}'`
       : `sh '${MODDIR}/bin/${controls.mode === 'patch' ? 'patch_toggle.sh' : 'toggle.sh'}' '${action.target}'`;
+  let ok = false, output = '';
   try {
-    // No timeout on writes. The UI stays locked until the native command exits.
+    // Give WebView a paint opportunity before calling the native bridge.
+    await new Promise(resolve => setTimeout(resolve, 32));
+    // Never release the mutation gate on a timer.
     const result = await exec(command);
-    const output = `${result.stdout}${result.stderr ? `\n${result.stderr}` : ''}`.trim();
-    showLog(result.errno === 0 ? '操作完成' : '操作失败', output);
-    if (result.errno === 0) {
-      if (action.type === 'profile') needsReboot = true;
-      toast(action.type === 'profile' ? '已写入，请重启' : '模式设置完成');
-    } else toast('操作失败，请查看日志');
-  } catch (error) {
-    showLog('执行失败', String(error));
-    toast('执行失败');
-  } finally {
+    output = `${result.stdout}${result.stderr ? `\n${result.stderr}` : ''}`.trim();
+    ok = result.errno === 0;
+    if (ok && action.type === 'profile') needsReboot = true;
+  } catch (error) { output = String(error); }
+  finally {
+    phase = '正在核对当前槽的实际状态…';
     actionBusy = false;
-    await refreshAll();
     await refreshDtbo();
-    scheduleTelemetry();
+    const expected = action.type === 'profile' ? controls.profile === action.target
+      : controls.mode === ({enable:'patch',recheck:'patch',selectStatic:'full_static',promote:'full_dynamic'})[action.type];
+    const [previousHash, previousSlot] = action.signature.split(':');
+    const verified = controls.valid && controls.mode !== 'error' && expected && previousSlot === snapshot.slot_suffix
+      && (action.type === 'profile' || previousHash === snapshot.sha256);
+    phase = '';
+    activeRequest = null;
+    setText('actionTitle', !ok ? '操作失败 · 查看原因' : !verified ? '结果未确认 · 查看记录' : action.type === 'profile' ? '已写入 · 请重启' : `已核验：${modeName(controls.mode)}`);
+    setText('actionOutput', output || '无脚本输出');
+    $('actionDetails').hidden = false;
+    $('actionDetails').open = !ok;
+    ufcsPanel?.render();
+    renderControls();
   }
 }
 async function loadLog() {
-  if (actionBusy || logBusy) return;
+  if (logBusy) return;
   logBusy = true;
-  clearTimeout(pollTimer);
-  renderControls();
+  $('logBtn').disabled = true;
   try {
     const result = await readCommand('charging_log.sh', 15000);
     if (result.errno !== 0) throw new Error(result.stderr || '日志不可读');
     // dmesg is historical. Never use it to replace current live measurements.
     showLog('充电日志 · 历史记录', result.stdout);
   } catch (error) { showLog('日志读取失败', String(error)); }
-  finally { logBusy = false; renderControls(); scheduleTelemetry(); }
+  finally { logBusy = false; $('logBtn').disabled = false; }
 }
 async function scanNodes() {
-  if (actionBusy || scanBusy) return;
+  if (scanBusy) return;
   scanBusy = true;
   $('nodeOutput').hidden = false;
   $('nodeOutput').textContent = '正在扫描…';
@@ -292,7 +325,7 @@ async function copyLog() {
 function scheduleTelemetry() {
   clearTimeout(pollTimer);
   const generation = ++pollGeneration;
-  if (document.hidden || actionBusy || logBusy) return;
+  if (document.hidden) return;
   pollTimer = setTimeout(async () => {
     try { await Promise.allSettled([refreshTelemetry(), ufcsPanel?.refresh()]); }
     finally { if (generation === pollGeneration) scheduleTelemetry(); }
@@ -300,11 +333,14 @@ function scheduleTelemetry() {
 }
 for (const [target, id] of [['stock','stockBtn'],['pps33','pps33Btn'],['pps55','pps55Btn']]) $(id).addEventListener('click', () => ask({type: 'profile', target}));
 $('patchModeBtn').addEventListener('click', () => ask({type: 'enable'}));
-$('fullModeBtn').addEventListener('click', () => ask({type: 'promote'}));
+$('fullModeBtn').addEventListener('click', () => ask({type: controls.canSelectStatic ? 'selectStatic' : 'promote'}));
 $('patchCheckBtn').addEventListener('click', () => ask({type: 'recheck'}));
 $('cancelBtn').addEventListener('click', closeDialog);
 $('confirmBtn').addEventListener('click', applyAction);
-$('confirmDialog').addEventListener('cancel', () => { pending = null; });
+$('confirmDialog').addEventListener('cancel', event => { event.preventDefault(); closeDialog(); });
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && pending && pending.type !== 'profile') { event.preventDefault(); closeDialog(); }
+});
 $('confirmDialog').addEventListener('click', event => {
   if (event.target !== $('confirmDialog')) return;
   const box = event.target.getBoundingClientRect();
@@ -312,6 +348,7 @@ $('confirmDialog').addEventListener('click', event => {
 });
 $('refreshBtn').addEventListener('click', refreshAll);
 $('verifyBtn').addEventListener('click', () => { void refreshDtbo(); });
+$('modeRetry').addEventListener('click', () => { void refreshDtbo(); });
 $('logBtn').addEventListener('click', loadLog);
 $('scanBtn').addEventListener('click', scanNodes);
 $('copyLogBtn').addEventListener('click', copyLog);
@@ -320,18 +357,16 @@ document.addEventListener('visibilitychange', async () => {
   clearTimeout(pollTimer);
   const generation = ++pollGeneration;
   if (!document.hidden) {
-    if (logBusy) return;
     if (Date.now() - lastTelemetryAt > 15000) markTelemetryStale('更新中');
     await Promise.allSettled([refreshTelemetry(), ufcsPanel?.refresh()]);
     if (generation === pollGeneration) scheduleTelemetry();
   }
 });
 ufcsPanel = mountUfcs({busy: () => actionBusy, setBusy: value => {
-  actionBusy = value;
-  if (value) clearTimeout(pollTimer);
+  ufcsBusy = value;
   renderControls();
-}, afterAction: () => { renderControls(); scheduleTelemetry(); }});
-await refreshAll();
+}});
+void refreshAll();
 scheduleTelemetry();
 void refreshDevice();
 void refreshDtbo();

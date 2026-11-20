@@ -15,7 +15,7 @@ export function ufcsState(data) {
     bootApply:consistent && data.boot_apply === '1', configValid:data.config_valid === '1'};
 }
 
-export function mountUfcs({busy, setBusy, afterAction}) {
+export function mountUfcs({busy, setBusy}) {
   const $ = id => document.getElementById(id);
   function set(id, property, value) {
     const node = $(id);
@@ -38,7 +38,7 @@ export function mountUfcs({busy, setBusy, afterAction}) {
       : '立即生效，不刷写分区。'));
   }
   async function refresh(keepNotice = false) {
-    if (changing || busy()) return;
+    if (changing) return;
     if (flight) return flight;
     if (!keepNotice) notice = '';
     const currentRevision = revision;
@@ -84,10 +84,9 @@ export function mountUfcs({busy, setBusy, afterAction}) {
       notice = desired ? (automatic ? '已关闭 UFCS，重启后自动应用。' : '已关闭 UFCS，本次开机有效。') : '已恢复系统默认。';
     } catch (error) { notice = String(error.message || error); }
     finally {
-      changing = false; setBusy(false);
+      changing = false; setBusy(false); render();
       await flight;
       await refresh(true);
-      afterAction();
     }
   }
   $('ufcsDisable').addEventListener('change', change);

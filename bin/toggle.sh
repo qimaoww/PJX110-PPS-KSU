@@ -90,6 +90,11 @@ if [ "$CURRENT" = "unknown" ]; then
   exit 15
 fi
 
+if [ "$management_mode" = full_static ] && [ "$TARGET" != stock ] && ! static_mode_selected "$slot" "$family"; then
+  echo '[!] 尚未选择当前槽位的全分区模式，拒绝 PPS 操作。'
+  exit 15
+fi
+
 if [ "$CURRENT" = "$TARGET" ]; then
   echo "[+] Already on requested profile; no write needed."
   exit 0

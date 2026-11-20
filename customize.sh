@@ -1,6 +1,6 @@
 #!/system/bin/sh
 ui_print "----------------------------------------"
-ui_print " Ace 3 Pro PPS v1.2.1"
+ui_print " Ace 3 Pro PPS v1.2.2"
 ui_print "----------------------------------------"
 
 MODDIR="$MODPATH"
@@ -46,7 +46,7 @@ else
 fi
 
 ui_print ""
-ui_print "[+] 安装完成。重启后打开模块 WebUI 选择档位。"
+ui_print "[+] 安装完成。重启后打开 WebUI，先选模式，再选档位。"
 ui_print "[+] 档位操作仅写当前槽 DTBO，保留完整 AVB。"
 ui_print "[!] 保持 Bootloader 解锁；仅 400 固件已实测。"
 ui_print "[!] 55W 需要支持 5A PPS 的充电器与线材。"

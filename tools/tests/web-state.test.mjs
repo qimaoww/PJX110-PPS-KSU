@@ -8,7 +8,7 @@ const sample = () => ({schema:'2',state:'ok',status:'Charging',capacity:'63',cap
   temp_raw:'85',temp_raw_unit:'deciC',usb_online:'1',usb_type_raw:'Unknown SDP DCP PD [PD_PPS]',
   usb_v_raw:'9000000',usb_v_raw_unit:'uV',usb_i_raw:'10000',usb_i_raw_unit:'uA',
   charge_full_raw:'6100000',charge_full_raw_unit:'uAh'});
-const state = () => ({state:'stock',management_mode:'patch',sha256:'a'.repeat(64),slot_suffix:'_a',
+const state = () => ({state:'stock',management_mode:'patch',sha256:'a'.repeat(64),stock_sha:'a'.repeat(64),slot_suffix:'_a',
   trusted_slot_available:'1',trusted_slot_conflict:'0',patch_driver_compatible:'1',
   patch_runtime_assets_compatible:'1',dynamic_assets_complete:'1',patch_can_enable:'0',patch_can_promote:'1'});
 
@@ -69,9 +69,39 @@ test('KV values cannot pollute prototypes', () => {
   const d = parseKV('__proto__=bad\npath=x=y\nstate=ok');
   assert.equal(Object.getPrototypeOf(d), null); assert.equal(d.path, 'x=y');
 });
-test('trusted dynamic state permits PPS and one-way promotion', () => {
+test('trusted Patch stock permits PPS and manual promotion', () => {
   const s = controlState(state()); assert.equal(s.canProfile('pps33'), true);
   assert.equal(s.canPromote, true); assert.equal(s.canEnable, false);
+});
+test('stock is neutral without registration; mode switching requires the backend offer and exact stock', () => {
+  for (const mode of ['stock_idle','full_dynamic']) {
+    const base={...state(), management_mode:mode, static_assets_complete:'1', static_stock_available:'1', full_stock_patch_available:'1', patch_can_enable:'1'};
+    assert.equal(controlState(base).canEnable,true);
+    for (const target of ['pps33','pps55']) assert.equal(controlState(base).canProfile(target),mode === 'full_dynamic');
+    for(const bad of [{state:'pps33'}, {state:'pps55'}, {stock_sha:'b'.repeat(64)}, {stock_sha:''}, {full_stock_patch_available:'0'}, {patch_runtime_assets_compatible:'0'}]) assert.equal(controlState({...base,...bad}).canEnable,false);
+  }
+  for (const stateName of ['pps33','pps55']) assert.equal(controlState({...state(),state:stateName}).canPromote,false);
+});
+test('no selection locks both PPS targets even when all assets and mode offers are available', () => {
+  for(const management_mode of ['none','stock_idle','error']) {
+    const s=controlState({...state(),management_mode,static_assets_complete:'1',static_stock_available:'1',static_full_selectable:'1',full_stock_patch_available:'1',patch_can_enable:'1'});
+    for(const target of ['stock','pps33','pps55']) assert.equal(s.canProfile(target),false,management_mode+': '+target);
+  }
+});
+test('legacy PPS without a selection permits only exact stock recovery', () => {
+  for(const profile of ['pps33','pps55']) {
+    const base={...state(),state:profile,management_mode:'restore_only',static_assets_complete:'1',static_stock_available:'1'};
+    const s=controlState(base);
+    assert.equal(s.canProfile('pps33'),false);assert.equal(s.canProfile('pps55'),false);
+    assert.equal(s.canProfile('stock'),true);assert.equal(s.canEnable || s.canSelectStatic || s.canPromote,false);
+    assert.equal(controlState({...base,static_stock_available:'0'}).canProfile('stock'),false);
+  }
+});
+test('builtin mode selection requires the current exact stock and complete set, independently of Patch', () => {
+  const d={...state(),management_mode:'stock_idle',static_full_selectable:'1',static_stock_available:'1',static_assets_complete:'1',patch_driver_compatible:'0',patch_runtime_assets_compatible:'0'};
+  assert.equal(controlState(d).canSelectStatic,true);
+  assert.equal(controlState(d).canEnable,false);
+  for (const change of [{management_mode:'patch'},{management_mode:'full_dynamic'},{state:'pps33'},{state:'pps55'},{stock_sha:''},{static_full_selectable:'0'},{static_assets_complete:'0'},{static_stock_available:'0'},{trusted_slot_conflict:'1'}]) assert.equal(controlState({...d,...change}).canSelectStatic,false);
 });
 test('any missing dynamic resource keeps only stock restoration', () => {
   for (const field of ['patch_driver_compatible','patch_runtime_assets_compatible','dynamic_assets_complete']) {

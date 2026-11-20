@@ -5,7 +5,11 @@ PPS_STATE_READ_ONLY=1
 . "$MODDIR/common.sh"
 
 clean() { printf '%s' "$1" | tr '\r\n=' '   ' | sed 's/[[:space:]][[:space:]]*/ /g; s/^ //; s/ $//'; }
-kv() { k="$1"; shift; printf '%s=%s\n' "$k" "$(clean "$*")"; }
+kv() {
+  # Most fields are fixed atoms (hashes, flags, paths). Avoid a tr + sed
+  # pipeline per field; retain sanitization for free-form values.
+  case "$2" in *[!a-zA-Z0-9_./:-]*) printf '%s=%s\n' "$1" "$(clean "$2")" ;; *) printf '%s=%s\n' "$1" "$2" ;; esac
+}
 
 # Snapshot each source once. Never cache a slot or a partition hash on disk.
 bc_slot="$(slot_from_bootconfig)"
@@ -27,17 +31,11 @@ for entry in "bootconfig:$bc_slot" "cmdline:$cl_slot" "bootctl:$ctl_slot"; do
     trusted_conflict=1
   fi
 done
-if [ -z "$slot" ]; then
-  slot="$prop_slot"
-  [ -z "$slot" ] || source="getprop"
-fi
-trusted_available=0
-[ -n "$trusted_slot" ] && trusted_available=1
+[ -n "$trusted_slot" ] && [ "$trusted_conflict" = 0 ] || { kv state error; kv message "Cannot identify a unique trusted DTBO slot"; exit 1; }
 prop_conflict=0
 [ -n "$prop_slot" ] && [ -n "$slot" ] && [ "$prop_slot" != "$slot" ] && prop_conflict=1
 firmware="$(system_firmware_version)"
 
-[ -n "$slot" ] || { kv state error; kv message "Cannot determine A/B slot"; exit 1; }
 label="$(slot_label "$slot")"
 block="$(find_dtbo_block_for_slot "$slot")" || { kv state error; kv message "DTBO block not found"; exit 1; }
 cur="$(block_hash "$block")" || { kv state error; kv message "Failed to read DTBO"; exit 1; }
@@ -51,12 +49,12 @@ patch_can_enable=0
 patch_can_promote=0
 patch_can_recheck=0
 ota_patch_available=0
-ota_candidate=0
-ota_patch_transition_allowed "$slot" "$cur" && ota_candidate=1
+full_stock_patch_available=0
+static_full_selectable=0
 driver_compatible=0
 # Scan the ABI only when dynamic controls can apply, including a manual OTA
 # registration. A matching per-slot generation takes priority over static SHA.
-if [ "$family" = "unknown" ] || [ "$registered_profile" != "unknown" ] || [ "$ota_candidate" = "1" ]; then
+if [ "$family" = "unknown" ] || [ "$registered_profile" != "unknown" ] || [ "$state" = stock ]; then
   pps_driver_compatible >/dev/null 2>&1 && driver_compatible=1
 fi
 runtime_assets_compatible=0
@@ -70,10 +68,25 @@ pps33_sha="$(pps33_sha_for_family "$family")"
 pps55_sha="$(pps55_sha_for_family "$family")"
 
 if [ "$family" != "unknown" ] && [ "$state" != "unknown" ] && [ "$registered_profile" = "unknown" ]; then
-  management_mode="full_static"
-  bundled_stock_asset_valid "$family" && static_stock_available=1
-  bundled_family_assets_valid "$family" && static_assets_complete=1
-  if [ "$ota_candidate" = "1" ] && [ "$driver_compatible" = "1" ] && [ "$runtime_assets_compatible" = "1" ]; then
+  # Stock without a choice is idle. A legacy PPS image with no choice can
+  # return to stock but cannot switch PPS profiles or implicitly select Full.
+  management_mode="restore_only"
+  if static_mode_selected "$slot" "$family"; then management_mode="full_static"
+  elif [ "$state" = stock ]; then management_mode="stock_idle"; fi
+  if bundled_family_assets_valid "$family"; then
+    # The complete set already verified stock's exact hash and footer.
+    static_assets_complete=1; static_stock_available=1
+  elif bundled_stock_asset_valid "$family"; then
+    static_stock_available=1
+  fi
+  if [ "$state" = stock ] && [ "$static_assets_complete" = 1 ] && [ "$(full_stock_owner "$slot" "$cur")" = "$family" ]; then
+    [ "$management_mode" != stock_idle ] || static_full_selectable=1
+    if [ "$driver_compatible" = 1 ] && [ "$runtime_assets_compatible" = 1 ]; then
+      full_stock_patch_available=1
+      patch_can_enable=1
+    fi
+  fi
+  if [ "$state" = stock ] && [ "$static_assets_complete" = 0 ] && [ "$driver_compatible" = 1 ] && [ "$runtime_assets_compatible" = 1 ] && ota_patch_transition_allowed "$slot" "$cur"; then
     ota_patch_available=1
     patch_can_enable=1
   fi
@@ -81,23 +94,18 @@ else
   state=unknown
   if dynamic_manifest_valid "$slot"; then
     dynamic_mode="$(dynamic_mode_for_slot "$slot")"
-    dynamic_profile="$(dynamic_profile_for_hash "$slot" "$cur")"
+    dynamic_profile="$registered_profile"
     dynamic_state_usable=0
     if [ "$dynamic_profile" != "unknown" ]; then
-      case "$dynamic_mode" in
-        patch)
-          if dynamic_stock_asset_valid "$slot"; then
-            dynamic_state_usable=1
-            dynamic_assets_valid "$slot" patch || dynamic_assets_complete=0
-          fi
-          ;;
-        full)
-          if dynamic_stock_asset_valid "$slot"; then
-            dynamic_state_usable=1
-            dynamic_assets_valid "$slot" full || dynamic_assets_complete=0
-          fi
-          ;;
-      esac
+      # The complete-set check already validates the primary stock image.
+      # Read the recovery copy only on failure. A mirror can grant stock
+      # restoration, never PPS or promotion. Writers still recheck under lock.
+      if dynamic_assets_valid "$slot" "$dynamic_mode"; then
+        dynamic_state_usable=1
+      else
+        dynamic_assets_complete=0
+        dynamic_stock_asset_valid "$slot" && dynamic_state_usable=1
+      fi
     fi
     if [ "$dynamic_state_usable" = "1" ]; then
       state="$dynamic_profile"
@@ -109,10 +117,14 @@ else
         patch)
           management_mode="patch"
           [ "$state" = "stock" ] && [ "$driver_compatible" = "1" ] && [ "$runtime_assets_compatible" = "1" ] && patch_can_recheck=1
-          [ "$driver_compatible" = "1" ] && [ "$runtime_assets_compatible" = "1" ] && [ "$dynamic_assets_complete" = "1" ] && patch_can_promote=1
+          [ "$patch_can_recheck" = "1" ] && [ "$dynamic_assets_complete" = "1" ] && patch_can_promote=1
           ;;
         full)
           management_mode="full_dynamic"
+          if [ "$state" = stock ] && [ "$dynamic_assets_complete" = 1 ] && [ "$driver_compatible" = 1 ] && [ "$runtime_assets_compatible" = 1 ] && [ "$(full_stock_owner "$slot" "$cur")" = dynamic ]; then
+            full_stock_patch_available=1
+            patch_can_enable=1
+          fi
           ;;
       esac
     elif { [ "$dynamic_profile" = "unknown" ] || [ "$dynamic_profile" = "stock" ]; } && [ "$dynamic_mode" = "patch" ]; then
@@ -120,6 +132,9 @@ else
       # Expose a safe re-detection action; patch_mode.sh will probe the image
       # and replace the per-slot registration only after that succeeds.
       management_mode="none"
+      # No usable registration for this endpoint. Enabling will perform a
+      # fresh stock probe, both dry-runs and backup verification under lock.
+      dynamic_assets_complete=1
       [ "$runtime_assets_compatible" = "1" ] && [ "$driver_compatible" = "1" ] && patch_can_enable=1
       family_text="动态检测待重新注册/修复 / $firmware"
     else
@@ -140,17 +155,6 @@ else
       [ "$runtime_assets_compatible" = "1" ] && [ "$driver_compatible" = "1" ] && patch_can_enable=1
     fi
   fi
-fi
-
-# A conflicting trusted slot source makes the write target ambiguous even if
-# the current hash is otherwise recognized. Keep telemetry visible, but make
-# every mutating control unavailable until the sources agree again.
-if [ "$trusted_conflict" = "1" ] || [ "$trusted_available" != "1" ] || [ "$slot" != "$trusted_slot" ]; then
-  management_mode="error"
-  patch_can_enable=0
-  ota_patch_available=0
-  patch_can_promote=0
-  patch_can_recheck=0
 fi
 
 case "$state" in
@@ -178,7 +182,7 @@ kv slot "$label"
 kv slot_suffix "$slot"
 kv slot_source "$source"
 kv trusted_slot_conflict "$trusted_conflict"
-kv trusted_slot_available "$trusted_available"
+kv trusted_slot_available 1
 kv prop_slot_conflict "$prop_conflict"
 kv block "$block"
 kv sha256 "$cur"
@@ -186,6 +190,8 @@ kv system_firmware "$firmware"
 kv dtbo_family "$family_text"
 kv management_mode "$management_mode"
 kv patch_can_enable "$patch_can_enable"
+kv full_stock_patch_available "$full_stock_patch_available"
+kv static_full_selectable "$static_full_selectable"
 kv ota_patch_available "$ota_patch_available"
 kv patch_can_promote "$patch_can_promote"
 kv patch_can_recheck "$patch_can_recheck"

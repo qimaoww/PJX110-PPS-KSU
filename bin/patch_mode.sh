@@ -49,16 +49,17 @@ block="$(find_dtbo_block_for_slot "$slot")" || { kv state error; kv message "Act
 cur="$(block_hash "$block")" || { kv state error; kv message "Failed to hash DTBO"; exit 14; }
 
 static_family="$(dtbo_family_for_hash "$cur" 2>/dev/null)"
+transition="$(full_patch_transition "$slot" "$cur")"
 ota_transition=0
-ota_patch_transition_allowed "$slot" "$cur" && ota_transition=1
+[ "$transition" != ota ] || ota_transition=1
 registered_patch=0
 if [ "$(dynamic_mode_for_slot "$slot" 2>/dev/null)" = "patch" ] && dynamic_profile_for_hash "$slot" "$cur" >/dev/null; then
   registered_patch=1
 fi
 if [ "$static_family" != "unknown" ] && [ -n "$static_family" ] &&
-  [ "$ota_transition" != "1" ] && [ "$registered_patch" != "1" ]; then
+  [ -z "$transition" ] && [ "$registered_patch" != "1" ]; then
   kv state full
-  kv message "Built-in Full Partition Mode cannot use Patch Mode"
+  kv message "Restore and verify this slot's exact stock DTBO and image set before switching modes"
   kv sha256 "$cur"
   exit 15
 fi
@@ -71,22 +72,16 @@ if [ "$ACTION" = "recheck" ]; then
     exit 16
   }
 fi
-if [ "$ota_transition" != "1" ] && [ -r "$manifest_path" ] && grep -Fqx 'mode=full' "$manifest_path" 2>/dev/null; then
+if [ -L "$manifest_path" ]; then kv state error; kv message "Invalid slot manifest"; exit 16; fi
+if [ -z "$transition" ] && [ -r "$manifest_path" ] && grep -Fqx 'mode=full' "$manifest_path" 2>/dev/null; then
   kv state full
-  kv message "Full Partition Mode registration is permanent; refusing Patch Mode"
+  kv message "Full Mode requires verified stock before switching to Patch Mode"
   kv sha256 "$cur"
   exit 15
 fi
 
 stale_patch_manifest=0
 if dynamic_manifest_valid "$slot"; then
-  mode="$(dynamic_mode_for_slot "$slot")"
-  if [ "$mode" = "full" ] && [ "$ota_transition" != "1" ]; then
-    kv state full
-    kv message "Dynamic Full Partition Mode cannot return to Patch Mode"
-    kv sha256 "$cur"
-    exit 15
-  fi
   profile="$(dynamic_profile_for_hash "$slot" "$cur")"
   if [ "$ACTION" = "recheck" ] && [ "$profile" != "stock" ]; then
     kv state error
@@ -115,11 +110,11 @@ if dynamic_manifest_valid "$slot"; then
   stale_patch_manifest=1
 fi
 
-if [ "$ota_transition" != "1" ] && [ -e "$manifest_path" ] && [ "$stale_patch_manifest" -ne 1 ]; then
+if [ -z "$transition" ] && [ -e "$manifest_path" ] && [ "$stale_patch_manifest" -ne 1 ]; then
   manifest_mode="$(manifest_value "$manifest_path" mode 2>/dev/null)"
   [ "$manifest_mode" = "patch" ] || {
     kv state error
-    kv message "Dynamic manifest exists but is invalid or permanently full; refusing overwrite"
+    kv message "Invalid dynamic manifest; refusing overwrite"
     exit 16
   }
   # A malformed patch manifest can be replaced only after the current image
@@ -136,16 +131,17 @@ mkdir "$WORK_DIR" || exit 9
 WORK_CREATED=1
 chmod 0700 "$WORK_DIR" || exit 9
 
+dtbo_write_target_valid "$block" "$slot" || { kv state error; kv message "Trusted DTBO target changed"; exit 16; }
 locked_cur="$(block_hash "$block")" || { kv state error; kv message "Failed to re-read DTBO after locking"; exit 16; }
 [ "$locked_cur" = "$cur" ] || {
   kv state error
   kv message "DTBO changed while waiting for the operation lock"
   exit 16
 }
-if [ "$ota_transition" = "1" ]; then
-  ota_patch_transition_allowed "$slot" "$locked_cur" || {
+if [ -n "$transition" ]; then
+  [ "$(full_patch_transition "$slot" "$locked_cur")" = "$transition" ] || {
     kv state error
-    kv message "OTA Patch Mode eligibility changed while waiting for the operation lock"
+    kv message "Stock or mode eligibility changed while waiting for the operation lock"
     exit 16
   }
 elif [ "$registered_patch" = "1" ]; then
@@ -158,9 +154,9 @@ fi
 
 if dynamic_manifest_valid "$slot"; then
   locked_mode="$(dynamic_mode_for_slot "$slot")"
-  [ "$locked_mode" = "patch" ] || { [ "$ota_transition" = "1" ] && ota_patch_transition_allowed "$slot" "$locked_cur"; } || {
+  [ "$locked_mode" = "patch" ] || [ -n "$transition" ] || {
     kv state full
-    kv message "Dynamic Full Partition Mode cannot return to Patch Mode"
+    kv message "Full Mode requires verified stock before switching to Patch Mode"
     exit 15
   }
   locked_profile="$(dynamic_profile_for_hash "$slot" "$locked_cur")"
@@ -261,17 +257,17 @@ dtbo_write_target_valid "$block" "$slot" && runtime_patch_assets_compatible && p
   kv message "Trusted DTBO target or patch resources changed during validation"
   exit 16
 }
-if [ "$ota_transition" = "1" ]; then
-  ota_patch_transition_allowed "$slot" "$cur" || {
+if [ -n "$transition" ]; then
+  [ "$(full_patch_transition "$slot" "$cur")" = "$transition" ] || {
     kv state error
-    kv message "OTA Patch Mode eligibility changed during validation"
+    kv message "Stock or mode eligibility changed during validation"
     exit 16
   }
 fi
 
 commit_manifest="$(dynamic_manifest_for_slot "$slot")"
 if [ -e "$commit_manifest" ]; then
-  [ "$(manifest_value "$commit_manifest" mode 2>/dev/null)" = "patch" ] || { [ "$ota_transition" = "1" ] && ota_patch_transition_allowed "$slot" "$cur"; } || {
+  [ ! -L "$commit_manifest" ] && { [ "$(manifest_value "$commit_manifest" mode 2>/dev/null)" = "patch" ] || [ -n "$transition" ]; } || {
     kv state full
     kv message "Full Mode manifest appeared during validation; refusing Patch Mode commit"
     exit 15
@@ -292,12 +288,16 @@ prepare_rescue_bundle "$slot" "$stock_img" "$cur" || {
   kv message "Independent Recovery rescue bundle creation/verification failed; Patch Mode was not enabled"
   exit 18
 }
-rm -f "$(dynamic_image_for_profile "$slot" pps33)" "$(dynamic_image_for_profile "$slot" pps55)"
-write_dynamic_manifest "$slot" patch "$cur" "$tested_pps33_sha" "$tested_pps55_sha" || {
+dtbo_write_target_valid "$block" "$slot" && [ "$(block_hash "$block")" = "$cur" ] || { kv state error; kv message "Active stock changed before mode commit"; exit 16; }
+write_dynamic_manifest "$slot" patch "$cur" "$tested_pps33_sha" "$tested_pps55_sha" "$transition" || {
   kv state error
   kv message "Failed to create Patch Mode manifest"
   exit 18
 }
+# A failed commit must leave an existing Full set intact and usable.
+choice="$(static_choice_path "$slot")" || exit 18
+rm -f "$choice" || { kv state error; kv message 'Patch registered, but previous Full choice could not be cleared'; exit 18; }
+rm -f "$(dynamic_image_for_profile "$slot" pps33)" "$(dynamic_image_for_profile "$slot" pps55)"
 sync
 clear_rescue_write_intent_for_verified_stock "$slot" || true
 

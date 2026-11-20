@@ -32,7 +32,7 @@ dynamic_manifest_valid "$slot" || { echo "[!] Valid dynamic manifest not found."
 block="$(find_dtbo_block_for_slot "$slot")" || exit 15
 cur="$(block_hash "$block")" || exit 15
 CURRENT="$(dynamic_profile_for_hash "$slot" "$cur")"
-[ "$CURRENT" != "unknown" ] || { echo "[!] Current hash does not match Patch Mode manifest."; exit 16; }
+[ "$CURRENT" = stock ] || { echo "[!] Restore the registered stock DTBO before switching modes."; exit 16; }
 
 acquire_dtbo_lock "$LOCK_DIR" || { echo "[!] Another DTBO operation is active."; exit 9; }
 trap 'cleanup' EXIT
@@ -47,6 +47,7 @@ dynamic_manifest_valid "$slot" && [ "$(dynamic_mode_for_slot "$slot")" = "patch"
   echo "[!] Patch Mode manifest changed while waiting for the operation lock."
   exit 16
 }
+dtbo_write_target_valid "$block" "$slot" || { echo "[!] Trusted DTBO target changed."; exit 16; }
 locked_cur="$(block_hash "$block")" || { echo "[!] Failed to re-read DTBO after locking."; exit 16; }
 [ "$locked_cur" = "$cur" ] || {
   echo "[!] DTBO changed while waiting for the operation lock; refusing promotion."
@@ -102,20 +103,16 @@ for profile in pps33 pps55; do
   esac
 done
 
-case "$CURRENT" in
-  stock) expected_current="$stock_sha" ;;
-  pps33) expected_current="$pps33_sha" ;;
-  pps55) expected_current="$pps55_sha" ;;
-esac
+dtbo_write_target_valid "$block" "$slot" && runtime_patch_assets_compatible && pps_driver_compatible >/dev/null || { echo "[!] Trusted DTBO target or runtime changed."; exit 19; }
 commit_cur="$(block_hash "$block")" || { echo "[!] Failed to re-read DTBO before Full Mode commit."; exit 19; }
-[ "$commit_cur" = "$cur" ] && [ "$commit_cur" = "$expected_current" ] || {
+[ "$commit_cur" = "$cur" ] && [ "$commit_cur" = "$stock_sha" ] || {
   echo "[!] Current partition does not match the regenerated Full Mode endpoint."
   echo "[!] Patch Mode remains active."
   exit 19
 }
 dynamic_manifest_valid "$slot" && [ "$(dynamic_mode_for_slot "$slot")" = "patch" ] || {
   echo "[!] Patch Mode manifest changed during Full Mode generation."
-  echo "[!] Refusing one-way mode commit."
+  echo "[!] Refusing mode commit."
   exit 19
 }
 
@@ -129,4 +126,4 @@ echo "[+] Manual switch to Full Partition Mode completed."
 echo "[+] stock SHA256: $stock_sha"
 echo "[+] pps33 SHA256: $pps33_sha"
 echo "[+] pps55 SHA256: $pps55_sha"
-echo "[!] This DTBO generation's Full Partition Mode cannot return to Patch Mode."
+echo "[+] The current stock profile was not changed."

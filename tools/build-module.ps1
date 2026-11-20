@@ -1,14 +1,17 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param()
+param([switch]$LocalTest, [ValidatePattern('^[a-z0-9]+(?:-[a-z0-9]+)*$')][string]$TestLabel)
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $dist = Join-Path $repo 'dist'
+if ($LocalTest) { $dist = Join-Path $dist 'local-test' }
 $versionLine = Get-Content -LiteralPath (Join-Path $repo 'module.prop') | Where-Object { $_ -match '^version=' }
 $version = $versionLine -replace '^version=', ''
 if ($version -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid module version' }
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
-$output = Join-Path $dist "PJX110-PPS-KSU-$version.zip"
+if ($TestLabel -and -not $LocalTest) { throw 'TestLabel is only supported for a local test build' }
+$suffix = if ($TestLabel) { "-$TestLabel" } else { '' }
+$output = Join-Path $dist "PJX110-PPS-KSU-$version$suffix.zip"
 $temporary = Join-Path $dist ('.build-' + [guid]::NewGuid().ToString('N') + '.zip')
 $files = @('module.prop','customize.sh','common.sh','service.sh','uninstall.sh','skip_mount','README.md','RECOVERY.md','FIRMWARES.md','FIRMWARES.json','LICENSE','THIRD_PARTY_NOTICES.md')
 foreach ($directory in @('bin','templates','webroot','rescue','LICENSES')) {

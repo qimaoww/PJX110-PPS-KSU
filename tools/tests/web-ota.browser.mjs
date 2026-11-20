@@ -26,11 +26,11 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
       window.__commands = [];
-      window.__deferRead = '';
+      window.__deferRead = 'status.sh';
       window.__deferred = [];
       window.__ufcs = {schema:'1',state:'ok',active:'0',value:'0',effective_disabled:'0',
         configured_disable:'0',boot_apply:'0',config_valid:'1',can_set:'1'};
-      window.__state = {state:'stock',management_mode:'full_static',sha256:'a'.repeat(64),slot:'A',slot_suffix:'_a',
+      window.__state = {state:'stock',management_mode:'stock_idle',sha256:'a'.repeat(64),stock_sha:'a'.repeat(64),slot:'A',slot_suffix:'_a',
         trusted_slot_available:'1',trusted_slot_conflict:'0',slot_source:'bootconfig',prop_slot_conflict:'0',
         patch_driver_compatible:'1',patch_runtime_assets_compatible:'1',dynamic_assets_complete:'1',
         static_assets_complete:'0',static_stock_available:'0',ota_patch_available:'1',patch_can_enable:'1',
@@ -52,25 +52,107 @@ try {
             output=kv(window.__scanResult || {detail_0:'/sys/class/power_supply/usb/usb_type | PD',scan_complete:'1'});
             errno=window.__scanError || 0;
           }
-          else if (command.includes('dtbo_state.sh')) output = kv(window.__state);
+          else if (command.includes('dtbo_state.sh')) { output = kv(window.__state); errno=window.__dtboError || 0; }
           else if (command.includes('boot_state.sh')) output = kv({boot_state:'已解锁',system_firmware:'PJX110_16.0.5.1001'});
           else if (command.includes('status.sh')) output = kv({schema:'2',state:'ok',status:'Charging',capacity:String(window.__capacity ?? 63),capacity_unit:'percent',
             vbat_raw:'4200000',vbat_raw_unit:'uV',ibat_raw:'-2000000',ibat_raw_unit:'uA',temp_raw:'320',temp_raw_unit:'deciC',usb_online:'1'});
-          else if (command.includes('patch_mode.sh') && command.endsWith('enable')) {
-            Object.assign(window.__state,{management_mode:'patch',ota_patch_available:'0',patch_can_enable:'0',patch_can_promote:'1',patch_can_recheck:'1',rescue_ready:'1'});
+          else if (command.includes('select_static_full.sh')) {
+            if(window.__rejectFull){errno=13; output='mode validation failed';}
+            else { Object.assign(window.__state,{management_mode:'full_static',static_full_selectable:'0'}); output='selected'; }
+          } else if (command.includes('patch_mode.sh') && command.endsWith('enable')) {
+            Object.assign(window.__state,{management_mode:'patch',ota_patch_available:'0',full_stock_patch_available:'0',patch_can_enable:'0',patch_can_promote:'1',patch_can_recheck:'1',rescue_ready:'1'});
             output = 'state=enabled\nprofile=stock';
           } else if (command.includes('promote_full.sh')) {
-            Object.assign(window.__state,{management_mode:'full_dynamic',patch_can_promote:'0',patch_can_recheck:'0'});
+            Object.assign(window.__state,{management_mode:'full_dynamic',full_stock_patch_available:'1',patch_can_enable:'1',patch_can_promote:'0',patch_can_recheck:'0'});
             output = 'Full Mode completed';
           }
-          if (window.__deferRead && command.includes('web_read.sh') && command.includes(window.__deferRead)) {
+          if (window.__deferAction && command.includes('select_static_full.sh')) {
+            window.__finishAction = () => window[callback](errno, output, '');
+          } else if (window.__deferRead && command.includes('web_read.sh') && command.includes(window.__deferRead)) {
             window.__deferred.push(() => window[callback](errno, output, ''));
           } else queueMicrotask(() => window[callback](errno, output, ''));
         }
       };
     });
     await page.goto(`http://127.0.0.1:${server.address().port}/index.html`);
-    await page.waitForFunction(() => !document.querySelector('#patchModeBtn').disabled);
+    // The independent mode check must finish even with first telemetry stuck.
+    await page.waitForFunction(() => window.__deferred.length===1 && !document.querySelector('#patchModeBtn').disabled);
+    assert.equal(await page.locator('#refreshBtn').isDisabled(),true);
+    await page.evaluate(()=>{window.__deferRead='';window.__deferred.splice(0).forEach(done=>done());});
+    assert.equal(await page.locator('#dtboLabel').textContent(),'原厂 DTBO');
+    assert.equal(await page.locator('#managementMode').textContent(),'未选择');
+    assert.equal(await page.locator('#fullModeBtn').isVisible(),true);
+    assert.equal(await page.locator('#fullModeBtn').isDisabled(),true); // OTA: missing images
+    assert.equal(await page.locator('#fullModeBtn').getAttribute('aria-pressed'),'false');
+    const otaState = await page.evaluate(()=>({...window.__state}));
+    await page.evaluate(()=>{document.querySelector('#diagnostics').open=true; Object.assign(window.__state,{
+      dtbo_family:'PJX110_16.0.2.400',system_firmware:'PJX110_16.0.2.400',static_assets_complete:'1',static_stock_available:'1',static_full_selectable:'1',full_stock_patch_available:'1',ota_patch_available:'0'});});
+    await page.locator('#verifyBtn').click();
+    await page.waitForFunction(()=>!document.querySelector('#fullModeBtn').disabled && !document.querySelector('#verifyBtn').disabled);
+    assert.equal(await page.locator('#patchModeBtn').isEnabled(),true);
+    assert.equal(await page.locator('#fullModeBtn').isEnabled(),true);
+    for (const id of ['fullModeBtn','patchModeBtn']) assert.equal(await page.locator('#'+id).getAttribute('aria-pressed'),'false');
+    for(const id of ['pps33Btn','pps55Btn']) assert.equal(await page.locator('#'+id).isDisabled(),true);
+    await page.locator('#pps33Btn').evaluate(btn=>btn.click());
+    assert.equal(await page.locator('#confirmDialog').evaluate(d=>d.open),false);
+    await page.locator('.control').screenshot({path:`investigation/webui-qa/stock-400-mode-required-${width}.png`});
+    await page.locator('#fullModeBtn').click();
+    assert.match(await page.locator('#confirmText').innerText(),/内置镜像.*不写入分区/);
+    assert.equal(await page.locator('#confirmDialog').evaluate(d=>d.open && !d.matches(':modal')),true);
+    await page.locator('.control').screenshot({path:`investigation/webui-qa/mode-inline-${width}.png`,animations:'disabled'});
+    await page.emulateMedia({reducedMotion:'reduce'});
+    assert.equal(await page.locator('.dialog-inner').evaluate(n=>getComputedStyle(n).animationName),'none');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#fullModeBtn').evaluate(n=>n===document.activeElement),true);
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    for(const id of ['pps33Btn','pps55Btn']) assert.equal(await page.locator('#'+id).isDisabled(),true);
+    assert.equal(await page.evaluate(()=>window.__commands.some(c=>c.includes('select_static_full.sh'))),false);
+    await page.evaluate(()=>{window.__rejectFull=true;});
+    await page.locator('#fullModeBtn').click(); await page.locator('#confirmBtn').click();
+    await page.waitForFunction(()=>document.querySelector('#actionTitle').textContent.includes('操作失败') && !document.querySelector('#fullModeBtn').disabled && !document.querySelector('#verifyBtn').disabled);
+    for(const id of ['pps33Btn','pps55Btn']) assert.equal(await page.locator('#'+id).isDisabled(),true);
+    assert.equal(await page.locator('#managementMode').textContent(),'未选择');
+    await page.evaluate(()=>{window.__rejectFull=false;window.__deferAction=true;});
+    await page.locator('#fullModeBtn').click();
+    await page.locator('#confirmBtn').click();
+    await page.waitForFunction(()=>Boolean(window.__finishAction));
+    assert.match(await page.locator('#modeHint').innerText(),/校验内置镜像/);
+    await page.locator('.control').screenshot({path:`investigation/webui-qa/mode-checking-${width}.png`,animations:'disabled'});
+    for(const id of ['pps33Btn','pps55Btn','patchModeBtn','fullModeBtn','verifyBtn']) assert.equal(await page.locator('#'+id).isDisabled(),true);
+    await page.locator('#confirmBtn').evaluate(n=>n.click()); // late duplicate confirm
+    for(const id of ['refreshBtn','scanBtn','logBtn']) assert.equal(await page.locator('#'+id).isEnabled(),true);
+    await page.evaluate(()=>{window.__capacity=62;});
+    await page.locator('#refreshBtn').click();
+    await page.waitForFunction(()=>document.querySelector('#capacity').textContent==='62');
+    await page.locator('#scanBtn').click();
+    await page.waitForFunction(()=>!document.querySelector('#scanBtn').disabled);
+    await page.evaluate(()=>{window.__deferRead='dtbo_state.sh';window.__deferAction=false;window.__finishAction();});
+    await page.waitForFunction(()=>window.__deferred.length===1);
+    assert.match(await page.locator('#modeHint').innerText(),/核对/);
+    assert.equal(await page.locator('#pps33Btn').isDisabled(),true);
+    assert.equal(await page.locator('#fullModeBtn').getAttribute('aria-pressed'),'false');
+    await page.evaluate(()=>{window.__deferRead='';window.__deferred.splice(0).forEach(done=>done());});
+    await page.waitForFunction(()=>document.querySelector('#fullModeBtn').getAttribute('aria-pressed')==='true' && !document.querySelector('#patchModeBtn').disabled);
+    assert.equal(await page.locator('#dtboLabel').textContent(),'原厂 DTBO');
+    assert.equal(await page.locator('#managementMode').textContent(),'全分区 · 内置');
+    for(const id of ['pps33Btn','pps55Btn']) assert.equal(await page.locator('#'+id).isEnabled(),true);
+    assert.deepEqual(await page.evaluate(()=>window.__commands.filter(c=>/select_static_full|toggle\.sh|promote_full|patch_mode/.test(c))),
+      Array(2).fill(`sh '/data/adb/modules/PJX110_PPS_KSU/bin/select_static_full.sh' '_a' '${'a'.repeat(64)}'`));
+    await page.locator('.control').screenshot({path:`investigation/webui-qa/stock-400-full-selected-${width}.png`});
+    await page.evaluate(d=>{window.__state=d;},otaState);
+    await page.locator('#verifyBtn').click();
+    await page.waitForFunction(()=>document.querySelector('#patchModeBtn').textContent==='检测并使用补丁' && !document.querySelector('#verifyBtn').disabled);
+    // A native timeout may include a partial (even apparently valid) snapshot.
+    // It must not enable writes and should point to the independent retry.
+    await page.evaluate(()=>{document.querySelector('#diagnostics').open=true; window.__dtboError=137;});
+    await page.locator('#verifyBtn').click();
+    await page.waitForFunction(()=>!document.querySelector('#verifyBtn').disabled);
+    assert.match(await page.locator('#modeHint').innerText(),/校验超时.*校验 DTBO/);
+    for (const id of ['patchModeBtn','pps33Btn','pps55Btn','stockBtn','fullModeBtn']) assert.equal(await page.locator('#'+id).isDisabled(),true);
+    await page.evaluate(()=>{window.__dtboError=0;});
+    await page.locator('#modeRetry').click();
+    await page.waitForFunction(()=>!document.querySelector('#patchModeBtn').disabled);
+    await page.locator('#diagnostics').evaluate(node=>{node.open=false;});
     assert.match(await page.locator('#modeHint').innerText(), /重装模块.*补丁模式/);
     assert.equal(await page.locator('#pps33Btn').isDisabled(), true);
     assert.equal(await page.locator('#pps55Btn').isDisabled(), true);
@@ -82,7 +164,7 @@ try {
     await page.waitForFunction(()=>document.querySelector('#ufcsBoot').checked && !document.querySelector('#refreshBtn').disabled);
     assert.equal(await page.locator('#ufcsDisable').isChecked(),true);
     await page.locator('.ufcs-card').scrollIntoViewIfNeeded();
-    await page.screenshot({path:`investigation/webui-qa/ufcs-v1.2.1-enabled-${width}.png`,fullPage:true});
+    await page.screenshot({path:`investigation/webui-qa/ufcs-enabled-${width}.png`,fullPage:true});
     // A separate tool may release the vote; a real status read must reflect it.
     await page.evaluate(()=>Object.assign(window.__ufcs,{active:'0',effective_disabled:'0'}));
     await page.locator('#refreshBtn').click();
@@ -104,6 +186,7 @@ try {
     await page.locator('#confirmBtn').click();
     await page.waitForFunction(() => document.querySelector('#patchModeBtn').getAttribute('aria-pressed') === 'true');
     assert.equal(await page.locator('#pps33Btn').isDisabled(), false);
+    assert.equal(await page.locator('#pps55Btn').isDisabled(), false);
     // A normal refresh leaves already verified DTBO controls available and
     // does not silently start another heavy integrity check.
     await page.evaluate(()=>{window.__deferRead='status.sh';});
@@ -112,6 +195,7 @@ try {
     assert.equal(await page.locator('#pps33Btn').isDisabled(),false);
     await page.locator('#pps33Btn').click();
     assert.equal(await page.locator('#confirmDialog').evaluate(node=>node.open),true);
+    assert.equal(await page.locator('#confirmDialog').evaluate(node=>node.matches(':modal')),true);
     const confirmation=await page.locator('#confirmText').innerText();
     await page.evaluate(()=>{
       window.__deferRead='';window.__deferred.splice(0).forEach(done=>done());
@@ -126,7 +210,10 @@ try {
     await page.locator('#fullModeBtn').click();
     await page.locator('#confirmBtn').click();
     await page.waitForFunction(() => document.querySelector('#fullModeBtn').getAttribute('aria-pressed') === 'true');
-    assert.equal(await page.locator('#patchModeBtn').isDisabled(), true);
+    assert.equal(await page.locator('#patchModeBtn').isDisabled(), false);
+    await page.locator('#patchModeBtn').click();
+    assert.match(await page.locator('#confirmText').innerText(), /不写入分区/);
+    await page.locator('#cancelBtn').click();
     assert.equal(await page.locator('#pps33Btn').isDisabled(), false);
     for (const patch of [
       {management_mode:'full_static',patch_can_enable:'0',ota_patch_available:'0'},
@@ -230,7 +317,7 @@ try {
     assert.match(await page.locator('#nodeOutput').innerText(),/保留读取结果/);
     await page.locator('#diagnostics').scrollIntoViewIfNeeded();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-    await page.screenshot({path:`investigation/webui-qa/refresh-scan-v1.2.1-${width}.png`,fullPage:true});
+    await page.screenshot({path:`investigation/webui-qa/refresh-scan-${width}.png`,fullPage:true});
     await page.evaluate(()=>{window.__scanResult={scan_complete:'1'};window.__scanError=0;});
     await page.locator('#scanBtn').click();
     await page.waitForFunction(()=>!document.querySelector('#scanBtn').disabled);
@@ -253,8 +340,8 @@ try {
     assert.equal(await page.evaluate(()=>window.__controlMutations),0);
     assert.deepEqual(errors, []);
     await page.locator('.ufcs-card').scrollIntoViewIfNeeded();
-    await page.screenshot({path:`investigation/webui-qa/ufcs-v1.2.1-${width}.png`,fullPage:true});
-    console.log(`PASS WebUI ${width}px: OTA offer, manual confirmation, no mixed commands, Full lock and failure gates`);
+    await page.screenshot({path:`investigation/webui-qa/ufcs-${width}.png`,fullPage:true});
+    console.log(`PASS WebUI ${width}px: neutral stock, verified manual switching, no mixed commands and failure gates`);
     await page.close();
   }
 } finally {

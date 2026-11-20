@@ -263,10 +263,17 @@ write_dynamic_manifest() (
   dir="$(dynamic_slot_dir "$slot")" || return 1
   mkdir -p "$dir" || return 1
   manifest="$dir/manifest"
-  # Full -> Patch stays forbidden within the same DTBO generation. Only a
-  # separately validated OTA stock generation may be registered manually.
+  [ ! -L "$manifest" ] && { [ ! -e "$manifest" ] || [ -f "$manifest" ]; } || return 1
+  # An ordinary endpoint update cannot change Full ownership. Only the manual
+  # enable path supplies a transition, after both dry-runs and rescue checks.
   if [ "$mode" = "patch" ] && [ -r "$manifest" ] && grep -Fqx 'mode=full' "$manifest"; then
-    ota_patch_transition_allowed "$slot" "$stock_sha" || return 1
+    case "${6:-}" in
+      full_stock|ota) ;;
+      *) return 1 ;;
+    esac
+    block="$(find_dtbo_block_for_slot "$slot")" || return 1
+    dtbo_write_target_valid "$block" "$slot" && [ "$(block_hash "$block")" = "$stock_sha" ] || return 1
+    [ "$(full_patch_transition "$slot" "$stock_sha")" = "$6" ] || return 1
   fi
   tmp="$dir/.manifest.$$"
   {
@@ -717,9 +724,59 @@ bundled_family_assets_valid() (
   done
 )
 
-# OTA starts a new DTBO generation. A manual Patch Mode offer is allowed only
-# for a different, exact stock family than the one selected during installation.
-# Existing Full Mode registration for this SAME stock generation remains locked.
+static_install_family() (
+  installed="$MODDIR/installed_images.conf"
+  [ -f "$installed" ] && [ -r "$installed" ] && [ ! -L "$installed" ] || return 1
+  awk -F= 'NF != 2 || $1 !~ /^(family|firmware)$/ {bad=1} seen[$1]++ {bad=1} END {if(bad || seen["family"]!=1 || seen["firmware"]!=1)exit 1}' "$installed" || return 1
+  family="$(manifest_value "$installed" family)"
+  label="$(dtbo_family_label "$family")"
+  [ "$label" != UNKNOWN ] && [ "$(manifest_value "$installed" firmware)" = "$label" ] || return 1
+  printf '%s\n' "$family"
+)
+
+# Same generation: match the installed set or the active slot's registered
+# Full set. A PPS endpoint, damaged set or ambiguous manifest cannot qualify.
+full_stock_owner() (
+  slot="$1"; current="$2"
+  manifest="$(dynamic_manifest_for_slot "$slot")" && is_sha256 "$current" || return 1
+  if [ -e "$manifest" ] || [ -L "$manifest" ]; then
+    [ -f "$manifest" ] && [ ! -L "$manifest" ] && dynamic_manifest_valid "$slot" || return 1
+    [ "$(manifest_value "$manifest" mode)" = full ] && [ "$(manifest_value "$manifest" stock_sha)" = "$current" ] || return 1
+    echo dynamic
+  else
+    family="$(static_install_family)" || return 1
+    [ "$(stock_sha_for_family "$family")" = "$current" ] && echo "$family"
+  fi
+)
+
+full_stock_patch_allowed() (
+  owner="$(full_stock_owner "$1" "$2")" || return 1
+  case "$owner" in dynamic) dynamic_assets_valid "$1" full ;; *) bundled_family_assets_valid "$owner" ;; esac
+)
+
+# Explicit mode selection is necessary but never sufficient for a PPS write:
+# the install record, slot, image hashes, AVB and rollback still need validation.
+static_choice_path() (
+  case "$1" in _a|_b) printf '%s/full-choice%s\n' "$STATE_DIR" "$1" ;; *) return 1 ;; esac
+)
+static_choice_matches() (
+  file="$(static_choice_path "$1")" && is_sha256 "$2" || return 1
+  [ ! -L "$file" ] && [ -f "$file" ] && [ "$(file_size_bytes "$file")" = 65 ] && [ "$(cat "$file")" = "$2" ]
+)
+
+static_mode_selected() (
+  slot="$1"; family="$2"
+  stock="$(stock_sha_for_family "$family")" || return 1
+  static_choice_matches "$slot" "$stock" && [ "$(full_stock_owner "$slot" "$stock")" = "$family" ]
+)
+
+full_patch_transition() (
+  if full_stock_patch_allowed "$1" "$2"; then echo full_stock
+  elif ota_patch_transition_allowed "$1" "$2"; then echo ota
+  else return 1; fi
+)
+
+# OTA is a separate transition to a different, exact stock generation.
 ota_patch_transition_allowed() (
   slot="$1"; current="$2"
   case "$slot" in _a|_b) ;; *) return 1 ;; esac
@@ -727,15 +784,26 @@ ota_patch_transition_allowed() (
   [ "$(detect_profile_for_hash "$current" 2>/dev/null)" = "stock" ] || return 1
   family="$(dtbo_family_for_hash "$current" 2>/dev/null)" || return 1
   installed="$MODDIR/installed_images.conf"
-  [ -r "$installed" ] || return 1
-  awk -F= 'NF != 2 || $1 !~ /^(family|firmware)$/ {bad=1} seen[$1]++ {bad=1} END {if(bad || seen["family"]!=1 || seen["firmware"]!=1)exit 1}' "$installed" || return 1
-  old_family="$(manifest_value "$installed" family)"
-  [ "$old_family" != "$family" ] || return 1
-  old_firmware="$(dtbo_family_label "$old_family")"
-  [ "$old_firmware" != "UNKNOWN" ] && [ "$(manifest_value "$installed" firmware)" = "$old_firmware" ] || return 1
-  bundled_family_assets_valid "$family" && return 1
   manifest="$(dynamic_manifest_for_slot "$slot")" || return 1
-  if [ -e "$manifest" ]; then
+  if [ -e "$installed" ] || [ -L "$installed" ]; then
+    old_family="$(static_install_family)" || return 1
+    [ "$old_family" != "$family" ] || return 1
+  else
+    # Unknown-firmware installs deliberately have no static install record.
+    # A previously registered Patch slot may still OTA to newly catalogued
+    # stock (e.g. 1301). No history, Full history, or ambiguous assets: deny.
+    [ -f "$manifest" ] && [ ! -L "$manifest" ] || return 1
+    [ "$(dynamic_mode_for_slot "$slot")" = patch ] || return 1
+    dynamic_profile_for_hash "$slot" "$current" >/dev/null && return 1
+    dynamic_stock_asset_valid "$slot" || return 1
+    for profile in stock pps33 pps55; do
+      image="$(profile_image_for_family "$family" "$profile")" || return 1
+      [ ! -e "$image" ] && [ ! -L "$image" ] || return 1
+    done
+  fi
+  bundled_family_assets_valid "$family" && return 1
+  if [ -e "$manifest" ] || [ -L "$manifest" ]; then
+    [ ! -L "$manifest" ] || return 1
     dynamic_manifest_valid "$slot" || return 1
     [ "$(manifest_value "$manifest" stock_sha)" != "$current" ] || return 1
   fi
@@ -1138,6 +1206,7 @@ write_verify() (
   is_sha256 "$expected_current" || { echo "[!] Missing current DTBO hash; refusing write."; return 1; }
 
   source_family="$(dtbo_family_for_hash "$expected_current" 2>/dev/null)"
+  static_pps=0
   # A manually registered OTA stock can also be in the static whitelist.
   # Its matching registration owns the endpoint set; never mix both sets.
   if dynamic_profile_for_hash "$slot" "$expected_current" >/dev/null; then
@@ -1158,6 +1227,10 @@ write_verify() (
       echo "[!] Refusing cross-firmware DTBO write."; return 1
     }
     required_stock_sha="$(stock_sha_for_family "$source_family")" || return 1
+    if [ "$expected" != "$required_stock_sha" ]; then
+      static_mode_selected "$slot" "$source_family" || { echo '[!] 请先选择当前槽位的全分区模式。'; return 1; }
+      static_pps=1
+    fi
   fi
   [ "$fallback_sha" = "$required_stock_sha" ] || {
     echo "[!] Fallback is not the exact firmware stock endpoint; refusing write."; return 1
@@ -1224,6 +1297,9 @@ write_verify() (
     echo "[!] DTBO target changed during validation; refusing write."
     return 1
   }
+  if [ "$static_pps" = 1 ] && ! static_mode_selected "$slot" "$source_family"; then
+    echo '[!] 全分区模式登记已变化，拒绝写入。'; return 1
+  fi
   if ! dd if="$image" of="$block" bs=4194304 2>/dev/null; then
     echo "[!] DTBO write command failed."
     restore_fallback || true

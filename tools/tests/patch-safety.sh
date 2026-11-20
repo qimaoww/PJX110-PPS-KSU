@@ -57,6 +57,21 @@ echo 'PASS shared manifest helper rejects Full -> Patch'
 # The following section specifically exercises the static writer with no
 # dynamic endpoint ownership. Restore the fixture registration for rescue tests.
 mv "$DYNAMIC_DIR/slot_a/manifest" "$TMP/full-manifest"
+printf 'family=400\nfirmware=PJX110_16.0.2.400\n' > "$MODDIR/installed_images.conf"
+for record in missing wrong_slot wrong_generation malformed; do
+  case "$record" in
+    wrong_slot) printf '%s\n' "$S_SHA" > "$(static_choice_path _b)" ;;
+    wrong_generation) printf '%s\n' "$F1001_STOCK_SHA" > "$(static_choice_path _a)" ;;
+    malformed) printf '%s\n%s\n' "$S_SHA" "$S_SHA" > "$(static_choice_path _a)" ;;
+  esac
+  reject_write "$P33" "$P33_SHA" "$BLOCK" "$STOCK" "$S_SHA" _a "$S_SHA"
+  reject_write "$P55" "$P55_SHA" "$BLOCK" "$STOCK" "$S_SHA" _a "$S_SHA"
+done
+command cp "$P55" "$BLOCK"
+write_verify "$STOCK" "$S_SHA" "$BLOCK" "$STOCK" "$S_SHA" _a "$P55_SHA" > "$TMP/result" 2>&1 || fail no-mode-recovery
+[ "$(hash_file "$BLOCK")" = "$S_SHA" ] || fail no-mode-stock-readback
+printf '%s\n' "$S_SHA" > "$(static_choice_path _a)"
+echo 'PASS no valid mode: both PPS writes denied before dd; exact factory recovery succeeds'
 
 CONFLICT=1; reject_write "$P33" "$P33_SHA" "$BLOCK" "$STOCK" "$S_SHA" _a "$S_SHA"; CONFLICT=0
 TRUSTED=_b; reject_write "$P33" "$P33_SHA" "$BLOCK" "$STOCK" "$S_SHA" _a "$S_SHA"; TRUSTED=_a
@@ -80,8 +95,10 @@ printf 'BAD!' | command dd of="$TMP/corrupt-stock.img" bs=1 conv=notrunc 2>/dev/
 reject_write "$P33" "$P33_SHA" "$BLOCK" "$TMP/corrupt-stock.img" "$S_SHA" _a "$S_SHA"
 echo 'PASS corrupted rollback backup blocks PPS before dd'
 DD_FAIL_ONCE=1
+before="$(count)"
 if write_verify "$P33" "$P33_SHA" "$BLOCK" "$STOCK" "$S_SHA" _a "$S_SHA" > "$TMP/result" 2>&1; then fail partial-write-status; fi
 DD_FAIL_ONCE=0
+[ "$(count)" = "$((before+2))" ] || fail missed-write-or-rollback
 [ "$(hash_file "$BLOCK")" = "$S_SHA" ] || fail partial-write-rollback
 echo 'PASS partial-write failure restores and verifies exact stock'
 

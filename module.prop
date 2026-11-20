@@ -1,6 +1,6 @@
 id=PJX110_PPS_KSU
 name=PJX110-PPS-KSU
-version=v1.2.1
-versionCode=12001
+version=v1.2.2
+versionCode=12002
 author=qimaoaa
 description=一加 Ace 3 Pro：PPS 切换、充电信息、UFCS 开关。仅刷 DTBO，保留 AVB；补丁模式未实测。

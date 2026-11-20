@@ -63,18 +63,93 @@ field() { sed -n "s/^$1=//p" "$SIM/output" | head -n 1; }
 state_field() { [ "$(field "$1")" = "$2" ] || fail "$1 != $2"; }
 count() { wc -l < "$CALLS" | tr -d ' '; }
 stock_before="$(hash_file "$BLOCK")"
+if [ "${1:-}" = --state-read ]; then
+  printf 'family=400\nfirmware=PJX110_16.0.2.400\n' > "$MODDIR/installed_images.conf"
+  cp "$MODDIR/images/dtbo_400_stock.img" "$BLOCK" || fail fixture
+  # Count only the installed stock image, not the active partition snapshot.
+  eval "$(declare -f hash_file | sed '1s/hash_file/raw_hash_file/')"
+  hash_file() {
+    if [ "$1" = "$MODDIR/images/dtbo_400_stock.img" ]; then echo stock >> "$SIM/stock-reads"; fi
+    raw_hash_file "$1"
+  }
+  system_firmware_version() { printf 'test=firmware\npatch_can_enable=9\n'; }
+  run_script bin/dtbo_state.sh || fail static-read
+  state_field static_full_selectable 1; state_field static_assets_complete 1; state_field static_stock_available 1
+  state_field system_firmware 'test firmware patch_can_enable 9'
+  [ "$(wc -l < "$SIM/stock-reads")" -eq 1 ] || fail duplicate-stock-read
+  mv "$MODDIR/images/dtbo_400_pps55.img" "$SIM/missing-55.img" || fail fixture
+  run_script bin/dtbo_state.sh || fail incomplete-read
+  state_field static_full_selectable 0; state_field static_assets_complete 0; state_field static_stock_available 1
+  [ "$(count)" = 0 ] || fail status-wrote-dtbo
+  echo 'PASS read-only state: stock hashed once for a complete set, broken set retains stock only, output sanitized'
+  exit 0
+fi
 manifest="$(dynamic_manifest_for_slot _a)"
 run_full_tests() {
   run_script bin/dtbo_state.sh || fail full-state
-  state_field management_mode full_dynamic; state_field state stock; state_field patch_can_enable 0
-  run_script bin/patch_mode.sh enable && fail same-generation-full-returned-to-patch
+  state_field management_mode full_dynamic; state_field state stock; state_field full_stock_patch_available 1; state_field patch_can_enable 1
   run_script bin/patch_toggle.sh pps33 && fail full-used-patch-writer
   run_script bin/toggle.sh pps33 || fail full-pps-write
   [ "$(hash_file "$BLOCK")" = "$(dynamic_sha_for_profile _a pps33)" ] || fail full-pps-readback
+  run_script bin/patch_mode.sh enable && fail full-pps-enabled-patch
   run_script bin/toggle.sh stock || fail full-stock-restore
   [ "$(hash_file "$BLOCK")" = "$stock_before" ] || fail final-stock
-  echo 'PASS dynamic Full owns known stock endpoints, refuses Patch and restores exact stock'
+  before="$(count)"
+  run_script bin/patch_mode.sh enable || fail restored-full-stock-switch
+  [ "$(dynamic_mode_for_slot _a)" = patch ] && [ "$(count)" = "$before" ] && [ "$(hash_file "$BLOCK")" = "$stock_before" ] || fail mode-only-transition
+  run_script bin/toggle.sh pps55 && fail patch-owned-full-writer
+  echo 'PASS dynamic Full requires exact stock before returning to Patch; registration does not write DTBO'
 }
+if [ "${1:-}" = --static-400 ]; then
+  printf 'family=400\nfirmware=PJX110_16.0.2.400\n' > "$MODDIR/installed_images.conf"
+  for profile in pps33 pps55; do
+    cp "$MODDIR/images/dtbo_400_$profile.img" "$BLOCK"
+    run_script bin/dtbo_state.sh || fail legacy-state
+    state_field management_mode restore_only; state_field static_stock_available 1
+    run_script bin/toggle.sh pps33 && fail legacy-33
+    run_script bin/toggle.sh pps55 && fail legacy-55
+    run_script bin/patch_mode.sh enable && fail pps-mode-change
+    run_script bin/select_static_full.sh _a "$(hash_file "$BLOCK")" && fail pps-full-selection
+  done
+  cp "$MODDIR/images/dtbo_400_stock.img" "$BLOCK"
+  run_script bin/dtbo_state.sh || fail state-400
+  state_field state stock; state_field management_mode stock_idle; state_field full_stock_patch_available 1
+  state_field static_full_selectable 1
+  for target in pps33 pps55; do
+    run_script bin/toggle.sh "$target" && fail neutral-full-writer
+    run_script bin/patch_toggle.sh "$target" && fail neutral-patch-writer
+  done
+  [ "$(count)" = 0 ] && [ "$(hash_file "$BLOCK")" = "$F400_STOCK_SHA" ] || fail no-mode-wrote-dtbo
+  run_script bin/select_static_full.sh _b "$F400_STOCK_SHA" && fail wrong-slot-choice
+  run_script bin/select_static_full.sh _a "$F1001_STOCK_SHA" && fail stale-ui-choice
+  mv "$MODDIR/images/dtbo_400_pps55.img" "$SIM/missing-55.img"
+  run_script bin/select_static_full.sh _a "$F400_STOCK_SHA" && fail incomplete-set-choice
+  mv "$SIM/missing-55.img" "$MODDIR/images/dtbo_400_pps55.img"
+  [ ! -e "$(static_choice_path _a)" ] || fail unexpected-selection
+  DRIVER_OK=0
+  run_script bin/select_static_full.sh _a "$F400_STOCK_SHA" || fail full-selection
+  run_script bin/dtbo_state.sh || fail refresh-selected-full
+  state_field state stock; state_field management_mode full_static; state_field static_full_selectable 0; state_field patch_can_enable 0
+  static_choice_matches _a "$F1001_STOCK_SHA" && fail ota-inherited-selection
+  static_choice_matches _b "$F400_STOCK_SHA" && fail other-slot-inherited-selection
+  [ "$(count)" = 0 ] || fail mode-selection-wrote-dtbo
+  run_script bin/patch_toggle.sh pps33 && fail full-used-patch-writer
+  run_script bin/toggle.sh pps33 || fail selected-full-33
+  [ "$(hash_file "$BLOCK")" = "$F400_PPS33_SHA" ] || fail selected-full-33-readback
+  run_script bin/toggle.sh pps55 || fail selected-full-55
+  [ "$(hash_file "$BLOCK")" = "$F400_PPS55_SHA" ] || fail selected-full-55-readback
+  run_script bin/toggle.sh stock || fail selected-full-stock
+  full_writes="$(count)"; [ "$full_writes" = 3 ] || fail unexpected-full-writes
+  DRIVER_OK=1
+  run_script bin/patch_mode.sh enable || fail stock-400-enable
+  run_script bin/select_static_full.sh _a "$F400_STOCK_SHA" && fail static-stole-patch
+  static_choice_matches _a "$F400_STOCK_SHA" && fail stale-full-choice
+  run_script bin/toggle.sh pps55 && fail patch-used-full-writer
+  [ "$(dynamic_mode_for_slot _a)" = patch ] && [ "$(count)" = "$full_writes" ] && [ "$(hash_file "$BLOCK")" = "$F400_STOCK_SHA" ] || fail stock-400-registration
+  rescue_bundle_valid _a "$F400_STOCK_SHA" || fail stock-400-rescue
+  echo 'PASS 400: no mode rejects both writers; selected Full alone writes 33/55 and restores; Patch takes exclusive ownership'
+  exit 0
+fi
 if [ "${1:-}" = --full-only ]; then
   dir="$(dynamic_slot_dir _a)"; mkdir -p "$dir"
   cp "$BLOCK" "$dir/stock.img"
@@ -85,6 +160,41 @@ if [ "${1:-}" = --full-only ]; then
   prepare_rescue_bundle _a "$dir/stock.img" "$stock_before" || fail full-fixture-rescue
   run_full_tests
   echo 'OTA Full regression OK'
+  exit 0
+fi
+if [ "${1:-}" = --patch-upgrade ]; then
+  # An installation on previously uncatalogued stock extracts no static set
+  # or installed_images.conf. Retain an actual, verified Patch stock backup.
+  # Use an unmodified bundled image to represent the previous stock generation;
+  # eligibility depends on its registered hash, not the historical whitelist.
+  cp "$REPO/images/dtbo_1001_stock.img" "$BLOCK" || fail fixture
+  old_sha="$(hash_file "$BLOCK")"
+  old_dir="$(dynamic_slot_dir _a)"; mkdir -p "$old_dir"
+  "$MODDIR/bin/dtbo-profile-patcher" verify "$BLOCK" > "$SIM/output" || fail old-stock-verify
+  cp "$BLOCK" "$old_dir/stock.img"
+  write_dynamic_manifest _a patch "$old_sha" '' '' || fail old-registration
+  cp "$REPO/images/dtbo_1301_stock.img" "$BLOCK"
+  ota_patch_transition_allowed _a "$F1301_STOCK_SHA" || fail patch-history-ota-1301
+  ota_patch_transition_allowed _b "$F1301_STOCK_SHA" && fail other-slot-registration
+  ota_patch_transition_allowed _a "$F1301_PPS33_SHA" && fail non-stock-target
+  printf 'family=invalid\n' > "$MODDIR/installed_images.conf"
+  ota_patch_transition_allowed _a "$F1301_STOCK_SHA" && fail invalid-record-fallback
+  rm "$MODDIR/installed_images.conf"
+  mv "$old_dir/stock.img" "$SIM/old-stock.img"
+  ota_patch_transition_allowed _a "$F1301_STOCK_SHA" && fail missing-old-stock
+  mv "$SIM/old-stock.img" "$old_dir/stock.img"
+  write_dynamic_manifest _a full "$old_sha" "$F400_PPS33_SHA" "$F400_PPS55_SHA" || fail old-full-setup
+  ota_patch_transition_allowed _a "$F1301_STOCK_SHA" && fail full-history-without-install-record
+  mv "$manifest" "$SIM/old-full-manifest"
+  write_dynamic_manifest _a patch "$old_sha" '' '' || fail old-registration
+  run_script bin/dtbo_state.sh || fail upgrade-state
+  state_field patch_can_enable 1; state_field ota_patch_available 1
+  run_script bin/patch_mode.sh enable || fail upgrade-enable
+  grep -Fqx 'state=enabled' "$SIM/output" || fail upgrade-not-enabled
+  [ "$(dynamic_sha_for_profile _a stock)" = "$F1301_STOCK_SHA" ] || fail new-stock-pin
+  rescue_bundle_valid _a "$F1301_STOCK_SHA" || fail upgrade-rescue
+  [ "$(count)" = 0 ] && [ "$(hash_file "$BLOCK")" = "$F1301_STOCK_SHA" ] || fail upgrade-registration-wrote-dtbo
+  echo 'PASS same-slot Patch history -> 1301 manual stock registration without an install record; no writes'
   exit 0
 fi
 ota_patch_transition_allowed _a "$F1001_STOCK_SHA" && fail missing-install-record
@@ -117,16 +227,16 @@ run_script bin/dtbo_state.sh || fail state-assets
 state_field patch_can_enable 0; state_field ota_patch_available 0
 run_script bin/patch_mode.sh enable && fail incompatible-assets-accepted
 ASSETS_OK=1; CONFLICT=1
-run_script bin/dtbo_state.sh || fail conflicting-state-read
-state_field management_mode error; state_field patch_can_enable 0; state_field ota_patch_available 0
+run_script bin/dtbo_state.sh && fail conflicting-state-read
+state_field state error
 run_script bin/patch_mode.sh enable && fail conflicting-slot-accepted
 CONFLICT=0
 [ "$(hash_file "$manifest")" = "$(hash_file "$SIM/old-manifest")" ] || fail rejected-actions-changed-manifest
 [ "$(count)" = 0 ] || fail rejected-actions-wrote-dtbo
 run_script bin/dtbo_state.sh || fail initial-state
-state_field management_mode full_static; state_field state stock
+state_field management_mode stock_idle; state_field state stock
 state_field static_assets_complete 0; state_field ota_patch_available 1; state_field patch_can_enable 1
-echo 'PASS state remains Full with manual OTA offer; unavailable resources disable it'
+echo 'PASS OTA stock remains neutral until manual selection; unavailable resources disable it'
 run_script bin/patch_mode.sh enable || fail manual-enable
 [ "$(dynamic_mode_for_slot _a)" = patch ] || fail patch-registration
 [ "$(hash_file "$BLOCK")" = "$stock_before" ] && [ "$(count)" = 0 ] || fail enable-wrote-partition
@@ -142,6 +252,8 @@ run_script bin/patch_toggle.sh pps33 || fail patch-write
 [ "$(hash_file "$BLOCK")" = "$(dynamic_sha_for_profile _a pps33)" ] || fail pps-readback
 run_script bin/dtbo_state.sh || fail patch-pps-state
 state_field management_mode patch; state_field state pps33
+state_field patch_can_promote 0
+run_script bin/promote_full.sh && fail patch-pps-promoted
 run_script uninstall.sh || fail uninstall
 [ "$(hash_file "$BLOCK")" = "$stock_before" ] || fail uninstall-stock-restore
 run_script bin/patch_toggle.sh pps55 || fail patch-55

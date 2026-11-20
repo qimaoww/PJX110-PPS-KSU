@@ -4,7 +4,7 @@ BINDIR="${0%/*}"
 case "$#:$1" in
   1:status.sh) seconds=4 ;;
   1:boot_state.sh) seconds=6 ;;
-  1:dtbo_state.sh) seconds=25 ;;
+  1:dtbo_state.sh) seconds=60 ;; # full integrity check, including dynamic backups
   1:charging_log.sh) seconds=12 ;;
   1:details.sh) seconds=8 ;;
   2:ufcs_control.sh) [ "$2" = status ] || exit 2; seconds=4 ;;
